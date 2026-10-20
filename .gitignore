@@ -1,0 +1,16 @@
+# Local secrets (at any directory depth).
+.env
+.env.*
+
+# Node.js dependencies and generated output.
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Local agent and editor configuration.
+AGENTS.md
+.codex/
+eslint.config.js
+.ignore
