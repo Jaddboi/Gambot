@@ -1,5 +1,6 @@
 // Finds a player by username and prints career stats without starting Discord.
-const { searchPlayer, getPlayerCareer } = require("../lib/marvel-rivals-api");
+const { getPlayerCareerStatsByUid } = require("../lib/marvel-rivals-api/get-player-career-stats");
+const { searchPlayerByUsername } = require("../lib/marvel-rivals-api/search-player-by-username");
 
 async function main() {
   const username = process.argv.slice(2).join(" ");
@@ -11,8 +12,8 @@ async function main() {
   const apiKey = process.env.MARVEL_RIVALS_API_KEY;
   const baseUrl = process.env.MARVEL_RIVALS_API_BASE_URL;
 
-  const player = await searchPlayer(username, apiKey, baseUrl);
-  const result = await getPlayerCareer(player.uid, apiKey, baseUrl);
+  const player = await searchPlayerByUsername(username, apiKey, baseUrl);
+  const result = await getPlayerCareerStatsByUid(player.uid, apiKey, baseUrl);
 
   console.log({
     uid: player.uid,
