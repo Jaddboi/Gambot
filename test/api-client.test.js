@@ -2,6 +2,7 @@
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { clearCache } = require("../lib/cache");
+const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
 const { getPlayerProfileByUid } = require("../lib/marvel-rivals-api/get-player-profile");
 const { getPlayerCareerStatsByUid } = require("../lib/marvel-rivals-api/get-player-career-stats");
 const { searchPlayerByUsername } = require("../lib/marvel-rivals-api/search-player-by-username");
@@ -12,6 +13,7 @@ const uid = "1235808159";
 
 beforeEach(() => {
   clearCache();
+  clearRateLimits();
 });
 
 async function withMockFetch(mock, check) {
@@ -152,8 +154,11 @@ test("shared request handling preserves the HTTP error messages", async () => {
   ]);
   for (const [status, message] of messages) {
     await withMockFetch(async () => new Response(null, { status }), async () => {
+      clearRateLimits();
       await assert.rejects(searchPlayerByUsername("Test", apiKey, baseUrl), { message });
+      clearRateLimits();
       await assert.rejects(getPlayerProfileByUid(uid, apiKey, baseUrl), { message });
+      clearRateLimits();
       await assert.rejects(getPlayerCareerStatsByUid(uid, apiKey, baseUrl), { message });
     });
   }
