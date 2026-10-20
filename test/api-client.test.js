@@ -1,6 +1,7 @@
 // Tests player lookups with dummy credentials and mocked requests; never loads .env.
-const { test } = require("node:test");
+const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
+const { clearCache } = require("../lib/cache");
 const { getPlayerProfileByUid } = require("../lib/marvel-rivals-api/get-player-profile");
 const { getPlayerCareerStatsByUid } = require("../lib/marvel-rivals-api/get-player-career-stats");
 const { searchPlayerByUsername } = require("../lib/marvel-rivals-api/search-player-by-username");
@@ -8,6 +9,10 @@ const { searchPlayerByUsername } = require("../lib/marvel-rivals-api/search-play
 const baseUrl = "https://api.rivalsisland.com";
 const apiKey = "dummy-key";
 const uid = "1235808159";
+
+beforeEach(() => {
+  clearCache();
+});
 
 async function withMockFetch(mock, check) {
   const originalFetch = globalThis.fetch;
