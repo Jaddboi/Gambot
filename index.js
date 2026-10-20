@@ -1,54 +1,15 @@
-// Require the necessary discord.js classes
-const fs = require("fs");
+// Starts the bot, loads commands, sets its presence, and routes interactions to execution logic.
 const path = require("path");
 require("dotenv").config();
+const { loadCommands } = require("./lib/load-commands");
 const {
   Client,
-  Collection,
   Events,
   GatewayIntentBits,
-  MessageFlags,
   Partials,
   ActivityType,
   PresenceUpdateStatus,
-  REST,
-  Routes,
-  Presence,
 } = require("discord.js");
-
-const deployCommands = async () => {
-  try {
-    const commands = [];
-    const commandFiles = fs
-      .readdirSync(path.join(__dirname, "commands"))
-      .filter((file) => file.endsWith(".js"));
-
-    for (const file of commandFiles) {
-      const command = require(`./commands/${file}`);
-      if ("data" in command && "execute" in command) {
-        commands.push(command.data.toJSON());
-      } else {
-        console.log(
-          `WARNING: The command at ${file} is missing a required "data" or "execute" property.`
-        );
-      }
-    }
-
-    const rest = new REST().setToken(process.env.BOT_TOKEN);
-    console.log(
-      `Started refreshing ${commands.length} application slash commands globally.`
-    );
-
-    const data = await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
-      { body: commands }
-    );
-
-    console.log("Successfully reloaded all commands!");
-  } catch (err) {
-    console.error("Error deploying commands:", err);
-  }
-};
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -60,32 +21,10 @@ const client = new Client({
   ],
 });
 
-client.commands = new Collection();
+client.commands = loadCommands(path.join(__dirname, "commands"));
 
-const commandsPath = path.join(__dirname, "commands");
-const commandFiles = fs
-  .readdirSync(commandsPath)
-  .filter((file) => file.endsWith(".js"));
-
-for (const file of commandFiles) {
-  const filePath = path.join(commandsPath, file);
-  const command = require(filePath);
-
-  if ("data" in command && "execute" in command) {
-    client.commands.set(command.data.name, command);
-  } else {
-    console.log(
-      `The command ${filePath} is missing a required "data" or "execute" property`
-    );
-  }
-}
-
-client.once(Events.ClientReady, async () => {
+client.once(Events.ClientReady, () => {
   console.log(`Ready! Logged in as ${client.user.tag}`);
-
-  // Deploy commands
-  await deployCommands();
-  console.log("Commands deployed globally");
 
   const statusType = process.env.BOT_STATUS || "online";
   const activityType = process.env.ACTIVITY_TYPE || "PLAYING";

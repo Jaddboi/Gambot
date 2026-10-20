@@ -1,3 +1,4 @@
+// Defines /ping and responds with the bot's response time and Discord gateway latency.
 const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
