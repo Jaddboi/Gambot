@@ -2,6 +2,7 @@
 const path = require("path");
 require("dotenv").config();
 const { loadCommands } = require("./lib/load-commands");
+const { handleInteraction } = require("./lib/handle-interaction");
 const {
   Client,
   Events,
@@ -59,31 +60,14 @@ client.once(Events.ClientReady, () => {
   console.log(`Activity set to: ${activityType}`);
 });
 
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const command = client.commands.get(interaction.commandName);
-
-  if (!command) {
-    // console.error(`No command matching ${interaction.commandName} was found`);
-    return;
-  }
-  try {
-    await command.execute(interaction);
-  } catch (err) {
-    console.error(err);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content: "There was an error while executing this command!",
-        ephemeral: true,
-      });
-    } else {
-      await interaction.reply({
-        content: "There was an error while executing this command!",
-        ephemeral: true,
-      });
-    }
-  }
+// Listens for when an interaction is created and handles it
+// An interaction represents someone using a bot feature, such as a slash command or button.
+// It contains who acted, where they acted, any submitted options, and methods for replying.
+// This listener receives each interaction and passes it to our slash-command handler.
+client.on(Events.InteractionCreate, (commandInteraction) => {
+  handleInteraction(commandInteraction, client.commands).catch(() => {
+    console.error("Failed to handle interaction.");
+  });
 });
 
 client.login(process.env.BOT_TOKEN);
