@@ -7,8 +7,8 @@ const {
   getPlayerMatchHistoryByUid,
 } = require("../lib/marvel-rivals-api/get-player-match-history");
 const {
-  buildPlayerHistoryPages,
-} = require("../lib/embeds/build-player-history-pages");
+  createDetailedHistoryPages,
+} = require("../lib/scoreboards/create-detailed-history-pages");
 const { paginateEmbeds } = require("../lib/paginate-embeds");
 
 module.exports = {
@@ -50,7 +50,7 @@ module.exports = {
       { mode }
     );
 
-    const pages = buildPlayerHistoryPages(player, history);
+    const pages = createDetailedHistoryPages(player, history, apiKey, baseUrl);
 
     await paginateEmbeds(commandInteraction, pages);
   },

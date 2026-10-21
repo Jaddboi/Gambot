@@ -5,7 +5,7 @@ A Discord bot for the University of Toronto Marvel Rivals community, built with
 [RivalsIsland API](https://api.rivalsisland.com/docs).
 
 Gambot currently provides player stats and recent match history in paginated
-embeds. Account linking, detailed match cards, patch notes, and community tools
+embeds. Account linking, standalone match lookup, patch notes, and community tools
 are planned features.
 
 ## Available commands
@@ -14,7 +14,7 @@ are planned features.
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
 | `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
-| `/history player:<username> [mode:<mode>]` | Shows recent returned matches with results, map, mode, time, kills, deaths, assists, and available rank changes. |
+| `/history player:<username> [mode:<mode>]` | Automatically shows a full scoreboard for each opened match, including both teams, heroes, combat stats, and a highlighted player. |
 
 ### Season and mode filters
 
@@ -77,15 +77,35 @@ if it fails; career stats remain usable.
 
 The username is required. The optional mode selects **Quick Play** or
 **Competitive**; omitted mode adds no category filter to the API request.
-Each returned match gets one embed, with Previous/Next controls available only
-to the invoking user for two minutes. Gains and losses display signed rank
-changes; missing values display as unavailable, while valid zero values remain zero.
+Standard two-team matches show exactly **three cards**: the existing overview
+and one text leaderboard for each team, with both teams visible together.
+Each table puts the player's name directly beside K/D/A, final hits, damage,
+damage taken, healing, and accuracy. One hero (the most time played) appears
+beneath each player's row, with MVP/SVP labels when available. Tables are sorted
+by kills; **>** marks the searched player. The overview retains its hero thumbnail
+when the API provides a trusted icon URL. Damage taken is not damage blocked.
+
+Previous/Next controls are available only to the invoking user for two minutes.
+Full details load only for the visible match. Opened cards are reused during
+that view, so returning to a match does not make another detail request or
+build it again. Each uncached match-detail lookup costs **5 API credits** under
+the [provider's documented pricing](https://api.rivalsisland.com/docs#matches),
+in addition to username/history requests.
+
+If full details cannot load, the command shows the existing match summary with
+available rank changes and K/D/A. Missing stats display as unavailable rather
+than zero. Tables use native Discord code blocks, without image rendering or
+attachment uploads. Discord loads the overview thumbnail directly; the bot does
+not download portraits or wait for them. API requests can still add loading time.
+Long names are shortened to keep columns aligned. Unusually large rosters or
+more than two teams are shortened with a notice to stay within embed limits.
+Individual modes show one participant table rather than inventing a second team.
 
 The command currently requests **API page 0 with a page size of 20**. The provider
 can return fewer matches, including an empty page. Buttons navigate only those
-returned matches and do not fetch older API pages. An empty-page message does
-not mean the player has never played. Hero breakdowns and detailed match lookup
-are not included in this version.
+returned matches and do not fetch older history pages. An empty-page message
+does not mean the player has never played. A standalone `/match` command remains
+planned; `/history` now provides full match cards automatically.
 
 ## Setup
 
@@ -180,7 +200,8 @@ pagination ownership, navigation expiry, season selection and labels, and season
 catalog validation and cache expiry. All-season checks cover conflicting options,
 mode filters, API confirmation, and separation from cached season-specific stats.
 History checks cover request and response validation, cache expiry and mode
-separation, match formatting, and navigation without additional API calls.
+separation, named table rows, three-card match layouts, native hero thumbnails, and embed limits,
+summary fallback, navigation expiry, and lazy detail loading during navigation.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -215,6 +236,7 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `lib/handle-interaction.js` | Routes slash commands, applies cooldowns, and handles execution failures. |
 | `lib/marvel-rivals-api/` | Player lookups, season catalog fetching, and shared HTTP request handling. |
 | `lib/embeds/` | Builds player stats, proficiency, and match history pages. |
+| `lib/scoreboards/` | Builds native match scoreboards and creates lazy history pages. |
 | `lib/paginate-embeds.js` | Handles message-scoped page navigation. |
 | `lib/cache.js` | Stores completed results with expiry and a size limit. |
 | `lib/cooldowns.js` | Tracks per-user, per-command cooldowns. |
@@ -224,12 +246,12 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 ### Request controls
 
 - Commands have a **five-second cooldown per user and command**.
-- Career, proficiency, and match history results are cached for **60 seconds**.
-  Season lists are cached for **one hour**. All four use a shared **100-entry cache limit**.
+- Career, proficiency, match history, and match details are cached for **60 seconds**.
+  Season lists are cached for **one hour**. All five use a shared **100-entry cache limit**.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
   Username search and basic profile lookup are not cached.
-- Identical pending career/proficiency lookups share their respective request,
+- Identical pending career/proficiency/match-detail lookups share their respective request,
   including response validation. Failed lookups are removed so they can be retried.
   History and season lookups cache completed results but do not share pending requests.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
@@ -251,7 +273,7 @@ access requirements will be checked as each feature is implemented.
 | Saved accounts | `/account link uid`, `/account unlink`. Save an association with a Discord account; this does not verify ownership. |
 | Expanded stats | Linked-account defaults for an omitted player and most-played hero performance in `/stats`; season and mode filters are already available. |
 | Rank | `/rank [player] [season]` for current/peak rank and available progression. |
-| Expanded matches | Older API-page fetching, hero breakdowns, linked-account defaults for `/history`, and `/match player match-id` for detailed match cards; recent history is already available. |
+| Expanded matches | Older history-page fetching, linked-account defaults for `/history`, and a standalone `/match player match-id`; history already opens full scoreboards automatically. |
 | Hero performance | `/player-hero hero [player] [season]` and `/compare player-a player-b [hero]`, using consistent season/mode settings. |
 | Refresh | `/refresh [player]` to request updates and show the refresh cooldown. |
 | Patch notes | `/patch latest`, `/patch list`. |
