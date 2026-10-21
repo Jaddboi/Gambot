@@ -13,6 +13,7 @@ const { paginateEmbeds } = require("../lib/paginate-embeds");
 const {
   getPlayerProficiencyByUid,
 } = require("../lib/marvel-rivals-api/get-player-proficiency");
+const { getSeasons } = require("../lib/marvel-rivals-api/get-seasons");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -24,10 +25,10 @@ module.exports = {
         .setDescription("The player's Marvel Rivals username")
         .setRequired(true)
     )
-    .addIntegerOption((option) =>
+    .addNumberOption((option) =>
       option
         .setName("season")
-        .setDescription("The RivalsIsland season ID")
+        .setDescription("The season number, such as 9 or 9.5")
         .setRequired(false)
         .setMinValue(0)
     )
@@ -43,7 +44,7 @@ module.exports = {
     ),
   async execute(commandInteraction) {
     const username = commandInteraction.options.getString("player", true);
-    const season = commandInteraction.options.getInteger("season");
+    const season = commandInteraction.options.getNumber("season");
     const mode = commandInteraction.options.getInteger("mode");
 
     await commandInteraction.deferReply();
@@ -51,13 +52,31 @@ module.exports = {
     const apiKey = process.env.MARVEL_RIVALS_API_KEY;
     const baseUrl = process.env.MARVEL_RIVALS_API_BASE_URL;
 
+    let seasonId = null;
+    let selectedSeason = null;
+
+    if (season != null) {
+      const seasons = await getSeasons(apiKey, baseUrl);
+
+      selectedSeason = seasons.find((entry) => Number(entry.number) === season);
+
+      if (!selectedSeason) {
+        await commandInteraction.editReply(
+          "That season is unavailable. Please choose an existing season."
+        );
+        return;
+      }
+
+      seasonId = selectedSeason.id;
+    }
+
     const player = await searchPlayerByUsername(username, apiKey, baseUrl);
 
     const result = await getPlayerCareerStatsByUid(
       player.uid,
       apiKey,
       baseUrl,
-      { season, mode }
+      { season: seasonId, mode }
     );
 
     let proficiency = null;
@@ -70,7 +89,12 @@ module.exports = {
     } catch {
       // Proficiency access is optional; keep the career pages usable if it is denied or unavailable.
     }
-    const pages = buildPlayerStatsPages(player, result, proficiency);
+    const pages = buildPlayerStatsPages(
+      player,
+      result,
+      proficiency,
+      selectedSeason
+    );
     await paginateEmbeds(commandInteraction, pages);
   },
 };

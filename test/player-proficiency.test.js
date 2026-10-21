@@ -133,6 +133,7 @@ test("stats command switches the actual embed to proficiency and handles denied 
         user: { id: "owner" },
         options: {
           getString: () => player.name,
+          getNumber: () => null,
           getInteger: () => null,
         },
         deferReply: async () => {},
