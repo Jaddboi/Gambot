@@ -194,6 +194,7 @@ npm test
 ```
 
 Tests use mocked API requests, fake Discord interactions, and dummy configuration.
+`npm test` runs the `test/*.test.js` files; support files in `test/helpers/` are not tests.
 They do not load `.env` or require live Discord/API connections. Coverage includes
 API errors, rate-limit timing, shared requests, stats formatting, proficiency,
 pagination ownership, navigation expiry, season selection and labels, and season
@@ -232,16 +233,31 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `index.js` | Starts the client, sets presence, and receives interactions. |
 | `deploy-commands.js` | Registers slash command definitions. |
 | `commands/` | Defines command options and execution. |
-| `lib/load-commands.js` | Loads commands, validates exports, and rejects duplicate names. |
-| `lib/handle-interaction.js` | Routes slash commands, applies cooldowns, and handles execution failures. |
+| `lib/discord/load-commands.js` | Loads commands, validates exports, and rejects duplicate names. |
+| `lib/discord/handle-interaction.js` | Routes slash commands, applies cooldowns, and handles execution failures. |
 | `lib/marvel-rivals-api/` | Player lookups, season catalog fetching, and shared HTTP request handling. |
-| `lib/embeds/` | Builds player stats, proficiency, and match history pages. |
-| `lib/scoreboards/` | Builds native match scoreboards and creates lazy history pages. |
-| `lib/paginate-embeds.js` | Handles message-scoped page navigation. |
+| `lib/discord/set-presence.js` | Applies the configured status and activity. |
+| `lib/embeds/stats/` | Builds career and proficiency pages; combines them with page numbering. |
+| `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
+| `lib/services/` | Resolves public seasons and assembles lazy history pages. |
+| `lib/formatting/` | Shared number, rank-change, and Markdown text formatting. |
+| `lib/discord/paginate-embeds.js` | Handles message-scoped page navigation. |
 | `lib/cache.js` | Stores completed results with expiry and a size limit. |
 | `lib/cooldowns.js` | Tracks per-user, per-command cooldowns. |
 | `scripts/` | Standalone local utilities. |
 | `test/` | Automated tests. |
+| `test/helpers/` | Isolated dummy command loading and mock-fetch cleanup. |
+
+To follow the code, start with `index.js`, then the interaction handler and a
+command such as `commands/history.js`. Endpoint files handle API access, services
+coordinate lookups, embed builders handle presentation, and the paginator handles
+button interactions. No barrel files or central environment configuration module
+are required.
+
+The shared API validation module checks credentials, HTTPS URLs, player UIDs, and
+mode inputs before cached results are returned. Endpoint-specific response
+validation stays in each endpoint file. Cached requests store successful results
+only after validation, and remove failed pending requests so later calls can retry.
 
 ### Request controls
 
@@ -250,8 +266,8 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
   Season lists are cached for **one hour**. All five use a shared **100-entry cache limit**.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
-  Username search and basic profile lookup are not cached.
-- Identical pending career/proficiency/match-detail lookups share their respective request,
+  Username search is not cached.
+- `lib/marvel-rivals-api/cached-request.js` shares identical pending career, proficiency, and match-detail requests,
   including response validation. Failed lookups are removed so they can be retried.
   History and season lookups cache completed results but do not share pending requests.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that

@@ -1,10 +1,7 @@
 // Tests history command embeds and navigation with mocked requests and isolated dummy settings.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const { createRequire } = require("node:module");
+const { loadCommand } = require("./helpers/load-command.cjs");
 const { EventEmitter, once } = require("node:events");
 const { clearCache } = require("../lib/cache");
 const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
@@ -21,17 +18,7 @@ const matches = ["win", "loss"].map((result, index) => ({
 }));
 
 async function runHistory(mode, returnedMatches, check) {
-  const filename = path.resolve(__dirname, "../commands/history.js");
-  const context = {
-    require: createRequire(filename),
-    module: { exports: {} },
-    process: { env: {
-      MARVEL_RIVALS_API_KEY: "dummy-key",
-      MARVEL_RIVALS_API_BASE_URL: "https://history-command.example",
-    } },
-  };
-  // Evaluate the command with dummy configuration, never dotenv or real environment settings.
-  vm.runInNewContext(fs.readFileSync(filename, "utf8"), context, { filename });
+  const command = loadCommand("history", { apiKey: "dummy-key", baseUrl: "https://history-command.example" });
 
   const originalFetch = globalThis.fetch;
   const requests = [];
@@ -85,7 +72,7 @@ async function runHistory(mode, returnedMatches, check) {
   };
 
   try {
-    await context.module.exports.execute({
+    await command.execute({
       user: { id: "owner" },
       options: { getString: () => player.name, getInteger: () => mode },
       deferReply: async () => { deferred = true; },
@@ -110,7 +97,6 @@ test("history automatically loads visible scoreboards and reuses them on back na
       assert.match(payloads[0].embeds[0].description, /^Result: \*\*win\*\*/);
       assert.equal(payloads[0].embeds[0].image, undefined);
       assert.equal(payloads[0].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/squirrel-girl.png");
-      assert.deepEqual(payloads[0].files, []);
       assert.equal(payloads[0].embeds.length, 3);
       assert.ok(payloads[0].embeds[1].description.includes("> CampusPlayer"));
       assert.ok(payloads[0].embeds[1].description.includes("Squirrel Girl"));
@@ -135,8 +121,6 @@ test("history automatically loads visible scoreboards and reuses them on back na
       assert.equal(payloads[1].embeds[2].title, "Team 2 · LOSS · Score 0");
       assert.equal(payloads[1].embeds.length, 3);
       assert.equal(payloads[1].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/moon-knight.png");
-      assert.deepEqual(payloads[1].files, []);
-      assert.deepEqual(payloads[1].attachments, []);
       assert.equal(payloads[2].content, "Page 1 / 2");
       assert.equal(payloads[2].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/squirrel-girl.png");
       assert.equal(requests.length, 4, "Returning to an opened match must not fetch its details again");

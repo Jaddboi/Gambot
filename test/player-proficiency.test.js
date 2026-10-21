@@ -1,16 +1,14 @@
 // Tests proficiency requests, page rendering, and command integration with dummy settings only.
-const { test, beforeEach } = require("node:test");
+const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const { createRequire } = require("node:module");
+const { withMockFetch: withFetch } = require("./helpers/mock-fetch.cjs");
+const { loadCommand } = require("./helpers/load-command.cjs");
 const { EventEmitter } = require("node:events");
 const { clearCache } = require("../lib/cache");
 const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
 const { getPlayerProficiencyByUid } = require("../lib/marvel-rivals-api/get-player-proficiency");
-const { buildPlayerProficiencyPages } = require("../lib/embeds/build-player-proficiency-pages");
-const { buildPlayerStatsPages } = require("../lib/embeds/build-player-stats-pages");
+const { buildPlayerProficiencyPages } = require("../lib/embeds/stats/build-player-proficiency-pages");
+const { buildPlayerStatsPages } = require("../lib/embeds/stats/build-player-stats-pages");
 
 const player = { uid: "123456789", name: "Dummy Player" };
 const baseUrl = "https://proficiency-test.example";
@@ -20,20 +18,6 @@ const hero = index => ({
   proficiency: { level: index, rank: "Test Rank", points: index * 100, points_to_next_level: 100 },
 });
 const proficiency = { uid: player.uid, heroes: [hero(0), hero(1)] };
-
-beforeEach(() => { clearCache(); clearRateLimits(); });
-
-async function withFetch(fetch, check) {
-  const original = globalThis.fetch;
-  globalThis.fetch = fetch;
-  try {
-    await check();
-  } finally {
-    globalThis.fetch = original;
-    clearCache();
-    clearRateLimits();
-  }
-}
 
 test("proficiency requests share pending work and cache validated results", async () => {
   let respond;
@@ -82,7 +66,7 @@ test("proficiency validates input before making requests", async () => {
 
 test("all proficiency heroes get pages sorted by points with consistent total page counts", () => {
   const data = { uid: player.uid, heroes: Array.from({ length: 12 }, (_, index) => hero(index)) };
-  const pages = buildPlayerStatsPages(player, { player, career: {} }, data).map(page => page.toJSON());
+  const pages = buildPlayerStatsPages({ player, result: { player, career: {} }, proficiency: data }).map(page => page.toJSON());
   assert.equal(pages.length, 5);
   assert.equal(pages[3].fields.length, 9);
   assert.equal(pages[4].fields.length, 3);
@@ -105,13 +89,7 @@ test("empty proficiency records and unavailable access have different messages",
 });
 
 test("stats command switches the actual embed to proficiency and handles denied access", async () => {
-  // Evaluate only the command with an isolated process object, never the real environment or dotenv.
-  const filename = path.resolve(__dirname, "../commands/stats.js");
-  const context = {
-    require: createRequire(filename), module: { exports: {} },
-    process: { env: { MARVEL_RIVALS_API_KEY: apiKey, MARVEL_RIVALS_API_BASE_URL: baseUrl } },
-  };
-  vm.runInNewContext(fs.readFileSync(filename, "utf8"), context, { filename });
+  const command = loadCommand("stats", { apiKey, baseUrl });
   for (const denied of [false, true]) {
     clearCache(); clearRateLimits();
     const requests = [];
@@ -129,7 +107,7 @@ test("stats command switches the actual embed to proficiency and handles denied 
       assert.equal(url.pathname, `/players/${player.uid}/proficiency`);
       return denied ? new Response(null, { status: 403 }) : Response.json(proficiency);
     }, async () => {
-      await context.module.exports.execute({
+      await command.execute({
         user: { id: "owner" },
         options: {
           getString: () => player.name,

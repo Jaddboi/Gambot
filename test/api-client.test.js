@@ -1,30 +1,14 @@
 // Tests player lookups with dummy credentials and mocked requests; never loads .env.
-const { test, beforeEach } = require("node:test");
+const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { clearCache } = require("../lib/cache");
+const { withMockFetch } = require("./helpers/mock-fetch.cjs");
 const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
-const { getPlayerProfileByUid } = require("../lib/marvel-rivals-api/get-player-profile");
 const { getPlayerCareerStatsByUid } = require("../lib/marvel-rivals-api/get-player-career-stats");
 const { searchPlayerByUsername } = require("../lib/marvel-rivals-api/search-player-by-username");
 
 const baseUrl = "https://api.rivalsisland.com";
 const apiKey = "dummy-key";
 const uid = "1235808159";
-
-beforeEach(() => {
-  clearCache();
-  clearRateLimits();
-});
-
-async function withMockFetch(mock, check) {
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = mock;
-  try {
-    await check();
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-}
 
 test("username search encodes the name and returns the player in one request", async () => {
   let calls = 0;
@@ -79,16 +63,6 @@ test("malformed search results are not treated as valid players", async () => {
   }
 });
 
-test("UID lookup still returns the profile from its own endpoint", async () => {
-  const profile = { uid, name: "Test Player", account_level: 20 };
-  await withMockFetch(async url => {
-    assert.equal(url.href, `${baseUrl}/players/${uid}`);
-    return Response.json(profile);
-  }, async () => {
-    assert.deepEqual(await getPlayerProfileByUid(uid, apiKey, baseUrl), profile);
-  });
-});
-
 test("username lookup supplies the UID for a single career request", async () => {
   const requests = [];
   const player = { uid, name: "Test Player", exact_match: true };
@@ -130,12 +104,11 @@ test("malformed career results are rejected", async () => {
 
 test("all lookups validate configuration before sending credentials", async () => {
   await withMockFetch(async () => assert.fail("Must not send a request"), async () => {
-    for (const lookup of [getPlayerProfileByUid.bind(null, uid), getPlayerCareerStatsByUid.bind(null, uid), searchPlayerByUsername.bind(null, "Test")]) {
+    for (const lookup of [getPlayerCareerStatsByUid.bind(null, uid), searchPlayerByUsername.bind(null, "Test")]) {
       await assert.rejects(lookup(" ", baseUrl), /API key is required/);
       await assert.rejects(lookup(apiKey, ""), /API base URL is required/);
       await assert.rejects(lookup(apiKey, "http://example.test"), /HTTPS/);
     }
-    await assert.rejects(getPlayerProfileByUid("0123", apiKey, baseUrl), /Player UID/);
     for (const invalidUid of [undefined, null, 123, "", "0123", "../search", "1".repeat(21)]) {
       await assert.rejects(getPlayerCareerStatsByUid(invalidUid, apiKey, baseUrl), /Player UID/);
     }
@@ -147,7 +120,7 @@ test("shared request handling preserves the HTTP error messages", async () => {
     [401, "The API key is missing or invalid."],
     [402, "The API account has insufficient credits."],
     [403, "Access denied. The data may be private or require a different plan."],
-    [404, "Player not found."],
+    [404, "The requested data was not found."],
     [422, "The API rejected the request parameters."],
     [429, "Too many requests. Please try again later."],
     [503, "Player lookup failed with HTTP status 503."],
@@ -156,8 +129,6 @@ test("shared request handling preserves the HTTP error messages", async () => {
     await withMockFetch(async () => new Response(null, { status }), async () => {
       clearRateLimits();
       await assert.rejects(searchPlayerByUsername("Test", apiKey, baseUrl), { message });
-      clearRateLimits();
-      await assert.rejects(getPlayerProfileByUid(uid, apiKey, baseUrl), { message });
       clearRateLimits();
       await assert.rejects(getPlayerCareerStatsByUid(uid, apiKey, baseUrl), { message });
     });

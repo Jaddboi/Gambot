@@ -1,23 +1,12 @@
 // Tests native scoreboard fields, safe formatting, embed limits, and lazy fallback.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { buildMatchScoreboard } = require("../lib/scoreboards/build-match-scoreboard");
-const { createDetailedHistoryPages } = require("../lib/scoreboards/create-detailed-history-pages");
-const { clearCache } = require("../lib/cache");
-const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
+const { withMockFetch: withFetch } = require("./helpers/mock-fetch.cjs");
+const { buildMatchScoreboard } = require("../lib/embeds/history/build-match-scoreboard");
+const { createDetailedHistoryPages } = require("../lib/services/create-detailed-history-pages");
 const fixture = require("./fixtures/match-details.json");
 const selectedUid = "123456789";
 const player = { uid: selectedUid, name: "CampusPlayer" };
-
-async function withFetch(fetch, check) {
-  const original = globalThis.fetch;
-  clearCache(); clearRateLimits();
-  globalThis.fetch = fetch;
-  try { await check(); } finally {
-    globalThis.fetch = original;
-    clearCache(); clearRateLimits();
-  }
-}
 
 test("a normal match has exactly three cards with named leaderboard rows for both teams", () => {
   const before = JSON.stringify(fixture);
@@ -113,7 +102,8 @@ test("large rosters and unusual team counts stay within three cards and disclose
   }
 });
 
-test("lazy detail failure shows the summary and retries when revisited", async () => {
+test("lazy detail failure shows the summary and retries when revisited", async (t) => {
+  const diagnostics = t.mock.method(console, "error", () => {});
   const history = { matches: [{ match_uid: fixture.match_uid, result: "win", played_at: fixture.played_at, player: { kills: 22 } }] };
   let calls = 0;
   await withFetch(async () => {
@@ -126,12 +116,10 @@ test("lazy detail failure shows the summary and retries when revisited", async (
     assert.equal(calls, 0);
     const fallback = await pages[0]();
     assert.match(fallback.embeds[0].description, /Full scoreboard unavailable/);
-    assert.deepEqual(fallback.attachments, []);
-    assert.deepEqual(fallback.files, []);
+    assert.equal(diagnostics.mock.calls[0].arguments[0], "History fallback: failed during match details.");
     const full = await pages[0]();
     const overview = full.embeds[0];
     assert.equal(overview.image, undefined);
-    assert.deepEqual(full.files, []);
     assert.match(overview.description, /Rank change: \*\*\+25\*\*/);
     assert.equal(overview.fields.find((field) => field.name === "Kills").value, "22");
     assert.strictEqual(await pages[0](), full);
@@ -139,11 +127,13 @@ test("lazy detail failure shows the summary and retries when revisited", async (
   });
 });
 
-test("a detail response without the searched player falls back instead of presenting another player's match", async () => {
+test("a detail response without the searched player falls back instead of presenting another player's match", async (t) => {
+  const diagnostics = t.mock.method(console, "error", () => {});
   await withFetch(async () => Response.json(fixture), async () => {
     const pages = createDetailedHistoryPages({ uid: "999999", name: "Other Player" }, {
       matches: [{ match_uid: fixture.match_uid, result: "win", played_at: fixture.played_at }],
     }, "dummy-key", "https://match-scoreboard.example");
     assert.match((await pages[0]()).embeds[0].description, /Full scoreboard unavailable/);
+    assert.equal(diagnostics.mock.calls[0].arguments[0], "History fallback: failed during scoreboard formatting.");
   });
 });

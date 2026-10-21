@@ -1,7 +1,7 @@
 // Loads command definitions and registers them globally with Discord when this script runs.
 const path = require("path");
 const { REST, Routes } = require("discord.js");
-const { loadCommands } = require("./lib/load-commands");
+const { loadCommands } = require("./lib/discord/load-commands");
 
 require("dotenv").config();
 

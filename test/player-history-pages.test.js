@@ -1,7 +1,7 @@
 // Tests history card content and unavailable values without credentials or network requests.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { buildPlayerHistoryPages } = require("../lib/embeds/build-player-history-pages");
+const { buildPlayerHistoryPages } = require("../lib/embeds/history/build-player-history-pages");
 
 const player = { uid: "123456789", name: "Dummy Player" };
 const match = {
