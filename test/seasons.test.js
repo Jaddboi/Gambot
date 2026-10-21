@@ -79,7 +79,7 @@ function loadStatsCommand() {
   return context.module.exports;
 }
 
-async function executeStats(season, mode = null) {
+async function executeStats(season, mode = null, allSeasons = null) {
   const payloads = [];
   let deferred = false;
   const collector = new EventEmitter();
@@ -89,6 +89,7 @@ async function executeStats(season, mode = null) {
     options: {
       getString: () => player.name,
       getNumber: (name) => { assert.equal(name, "season"); return season; },
+      getBoolean: (name) => { assert.equal(name, "all-seasons"); return allSeasons; },
       getInteger: (name) => { assert.equal(name, "mode"); return mode; },
     },
     deferReply: async () => { deferred = true; },
@@ -184,12 +185,15 @@ test("failed season requests are not cached and permit another attempt", async (
   });
 });
 
-test("stats registration accepts a decimal season and retains integer mode choices", () => {
+test("stats registration supports decimal seasons, an all-seasons flag, and integer mode choices", () => {
   const options = loadStatsCommand().data.toJSON().options;
   const season = options.find((option) => option.name === "season");
   assert.equal(season.type, ApplicationCommandOptionType.Number);
   assert.equal(season.required, false);
   assert.equal(season.min_value, 0);
+  const allSeasons = options.find((option) => option.name === "all-seasons");
+  assert.equal(allSeasons.type, ApplicationCommandOptionType.Boolean);
+  assert.equal(allSeasons.required, false);
   const mode = options.find((option) => option.name === "mode");
   assert.equal(mode.type, ApplicationCommandOptionType.Integer);
   assert.deepEqual(mode.choices.map(({ value }) => value), [1, 2]);
@@ -245,5 +249,101 @@ test("career pages show the public number only for a matching returned season ID
       assert.equal(page.description, `Career stats • ${label} • Quick Play`);
     }
     assert.doesNotMatch(pages[3].description, /Career stats|Season 9\.5/);
+  }
+});
+
+test("all-seasons requests omit the season filter and preserve the selected mode", async () => {
+  for (const [mode, modeLabel] of [[null, "API default mode"], [1, "Quick Play"], [2, "Competitive"]]) {
+    await withFakeApi(async (state) => {
+      const payloads = await executeStats(null, mode, true);
+      const career = state.requests.find(({ url }) => url.pathname.endsWith("/career"));
+      assert.equal(career.url.searchParams.has("season"), false);
+      assert.equal(career.url.searchParams.get("game_mode"), mode === null ? null : String(mode));
+      assert.equal(payloads[0].embeds[0].description, `Career stats • All seasons • ${modeLabel}`);
+      assert.deepEqual(state.requests.map(({ url }) => url.pathname), [
+        "/players/search", `/players/${player.uid}/career`, `/players/${player.uid}/proficiency`,
+      ]);
+    });
+  }
+});
+
+test("all-seasons conflicts with a specific season before any API request, including season zero", async () => {
+  for (const season of [0, 9.5]) {
+    await withFakeApi(async (state) => {
+      const payloads = await executeStats(season, null, true);
+      assert.equal(state.requests.length, 0);
+      assert.equal(payloads.length, 1);
+      assert.match(payloads[0], /Choose either a specific season or all-seasons:true/);
+    });
+  }
+});
+
+test("all-seasons false allows a specific season and preserves the default when none is selected", async () => {
+  for (const [season, expectedId, label] of [[9.5, "312", "Season 9.5"], [null, null, "API default season"]]) {
+    await withFakeApi(async (state) => {
+      const payloads = await executeStats(season, null, false);
+      const career = state.requests.find(({ url }) => url.pathname.endsWith("/career"));
+      assert.equal(career.url.searchParams.get("season"), expectedId);
+      assert.equal(payloads[0].embeds[0].description, `Career stats • ${label} • API default mode`);
+    });
+  }
+});
+
+test("all-seasons does not present season-specific or unconfirmed API responses as combined stats", async () => {
+  for (const filters of [{ season: 312 }, {}]) {
+    await withFakeApi(async (state) => {
+      const defaultRespond = state.respond;
+      state.respond = async (url) => url.pathname.endsWith("/career")
+        ? Response.json({ player, filters, career: {} })
+        : defaultRespond(url);
+      const payloads = await executeStats(null, null, true);
+      assert.equal(payloads.length, 1);
+      assert.match(payloads[0], /did not confirm an all-seasons result/);
+      assert.deepEqual(state.requests.map(({ url }) => url.pathname), [
+        "/players/search", `/players/${player.uid}/career`,
+      ]);
+    });
+  }
+});
+
+test("all-seasons uses the unfiltered career cache separately from a specific season", async () => {
+  await withFakeApi(async (state) => {
+    const defaultRespond = state.respond;
+    state.respond = async (url) => {
+      if (!url.pathname.endsWith("/career")) return defaultRespond(url);
+      const season = url.searchParams.get("season");
+      return Response.json({
+        player,
+        filters: { season: season === null ? null : Number(season), game_mode: 2 },
+        career: { matches: season === null ? 100 : 10, wins: 5 },
+      });
+    };
+    const specific = await executeStats(9.5, 2);
+    const combined = await executeStats(null, 2, true);
+    const repeated = await executeStats(null, 2, true);
+    assert.equal(state.requests.filter(({ url }) => url.pathname.endsWith("/career")).length, 2);
+    const matches = (payload) => payload.embeds[0].fields.find((field) => field.name === "Matches").value;
+    assert.equal(matches(specific[0]), "10");
+    assert.equal(matches(combined[0]), "100");
+    assert.equal(matches(repeated[0]), "100");
+  });
+});
+
+test("all-seasons labels apply to all career pages without changing rank metadata or proficiency labels", () => {
+  const result = {
+    player: { ...player, rank: { season: "9.5", rank: "Diamond I" } },
+    career: {},
+    filters: { season: null, game_mode: 2 },
+  };
+  const pages = buildPlayerStatsPages(player, result, null, null, true).map((page) => page.toJSON());
+  for (const page of pages.slice(0, 3)) {
+    assert.equal(page.description, "Career stats • All seasons • Competitive");
+  }
+  assert.equal(pages[0].fields.find((field) => field.name === "Rank season").value, "9.5");
+  assert.doesNotMatch(pages[3].description, /All seasons/);
+
+  for (const [filters, label] of [[{ season: 312 }, "Season ID: 312"], [{}, "API default season"]]) {
+    const [overview] = buildPlayerStatsPages(player, { ...result, filters }, null, null, true);
+    assert.equal(overview.toJSON().description, `Career stats • ${label} • API default mode`);
   }
 });
