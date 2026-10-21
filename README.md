@@ -12,7 +12,23 @@ match history, patch notes, and community tools are planned features.
 | Command | What it does |
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
-| `/stats player:<username>` | Looks up a Marvel Rivals username and displays player stats with Previous/Next navigation. |
+| `/stats player:<username> [season:<number>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats, optionally filtered by season and Quick Play or Competitive mode. |
+
+### Season and mode filters
+
+Enter a public season number such as `9` or `9.5`. Gambot looks up the available
+seasons and sends the matching internal season ID to the career stats endpoint.
+Unavailable selections, including `0.5`, are rejected before the player lookup.
+Season `0` is accepted when it appears in the API's season list.
+
+Choose **Quick Play** or **Competitive** for the optional mode. Omitting season
+or mode leaves that filter at the API's default; this does not necessarily mean
+all-time data or all modes.
+
+```text
+/stats player:Sypeh
+/stats player:Sypeh season:9.5 mode:Competitive
+```
 
 ### Player stats pages
 
@@ -28,9 +44,13 @@ Only the person who ran the command can navigate its pages. Controls expire afte
 two minutes. Page changes reuse fetched data instead of making more API calls.
 Missing data displays as unavailable rather than zero.
 
-The current command requires a username and uses the API's default career
-filters. Season/mode options and defaulting to a linked account are not implemented.
+The command currently requires a username; linked-account defaults are planned.
+Overview, Combat, and Impact pages display the season and mode filters returned
+by the API. A matching selected season is shown by its public number; otherwise,
+the label falls back to the returned season ID or API default season.
 The rank season is displayed separately; do not assume it describes all career totals.
+Account details and rank metadata are separate from the filtered career totals.
+Hero proficiency comes from a separate endpoint and is not filtered by season or mode.
 
 **Proficiency access:** RivalsIsland lists the player proficiency endpoint as
 Premium-only. Gambot attempts that lookup and shows an availability explanation
@@ -65,7 +85,7 @@ MARVEL_RIVALS_API_BASE_URL=https://api.rivalsisland.com
 | --- | --- |
 | `BOT_TOKEN` | Bot login and command registration. |
 | `CLIENT_ID` | The Discord application receiving registered commands. |
-| `MARVEL_RIVALS_API_KEY` | Player data requests. |
+| `MARVEL_RIVALS_API_KEY` | Player data and season catalog requests. |
 | `MARVEL_RIVALS_API_BASE_URL` | The API server, which must use HTTPS. |
 
 Keep Discord IDs as strings. Keep real tokens and keys out of source code and
@@ -107,6 +127,7 @@ Keep the process running and wait for the ready message. In Discord, try:
 ```text
 /ping
 /stats player:Sypeh
+/stats player:Sypeh season:9.5 mode:Competitive
 ```
 
 **Registration and startup are separate:** redeploy when command names,
@@ -124,7 +145,8 @@ npm test
 Tests use mocked API requests, fake Discord interactions, and dummy configuration.
 They do not load `.env` or require live Discord/API connections. Coverage includes
 API errors, rate-limit timing, shared requests, stats formatting, proficiency,
-pagination ownership, and navigation expiry.
+pagination ownership, navigation expiry, season selection and labels, and season
+catalog validation and cache expiry.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -157,7 +179,7 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `commands/` | Defines command options and execution. |
 | `lib/load-commands.js` | Loads commands, validates exports, and rejects duplicate names. |
 | `lib/handle-interaction.js` | Routes slash commands, applies cooldowns, and handles execution failures. |
-| `lib/marvel-rivals-api/` | Player lookups and shared HTTP request handling. |
+| `lib/marvel-rivals-api/` | Player lookups, season catalog fetching, and shared HTTP request handling. |
 | `lib/embeds/` | Builds player stats and proficiency pages. |
 | `lib/paginate-embeds.js` | Handles message-scoped page navigation. |
 | `lib/cache.js` | Stores completed results with expiry and a size limit. |
@@ -168,8 +190,10 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 ### Request controls
 
 - Commands have a **five-second cooldown per user and command**.
-- Career and proficiency results are cached for **60 seconds**, with a shared
-  **100-entry cache limit**. Username search and basic profile lookup are not cached.
+- Career and proficiency results are cached for **60 seconds**. Season lists are
+  cached for **one hour**. All three use a shared **100-entry cache limit**.
+  Career cache keys include the season and mode filters, so different selections
+  use separate entries. Username search and basic profile lookup are not cached.
 - Identical pending career/proficiency lookups share their respective request,
   including response validation. Failed lookups are removed so they can be retried.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
@@ -189,7 +213,7 @@ access requirements will be checked as each feature is implemented.
 | Area | Planned commands and behavior |
 | --- | --- |
 | Saved accounts | `/account link uid`, `/account unlink`. Save an association with a Discord account; this does not verify ownership. |
-| Expanded stats | `/stats [player] [season] [mode]`, with linked-account defaults, filters, and most-played heroes. |
+| Expanded stats | Linked-account defaults for an omitted player and most-played hero performance in `/stats`; season and mode filters are already available. |
 | Rank | `/rank [player] [season]` for current/peak rank and available progression. |
 | Matches | `/history [player] [mode]` and `/match player match-id` for paginated history and detailed match cards. |
 | Hero performance | `/player-hero hero [player] [season]` and `/compare player-a player-b [hero]`, using consistent season/mode settings. |
