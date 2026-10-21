@@ -12,7 +12,7 @@ match history, patch notes, and community tools are planned features.
 | Command | What it does |
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
-| `/stats player:<username> [season:<number>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats, optionally filtered by season and Quick Play or Competitive mode. |
+| `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
 
 ### Season and mode filters
 
@@ -21,6 +21,14 @@ seasons and sends the matching internal season ID to the career stats endpoint.
 Unavailable selections, including `0.5`, are rejected before the player lookup.
 Season `0` is accepted when it appears in the API's season list.
 
+Select **all-seasons:True** to request career totals without a season filter.
+Use either `season` or `all-seasons:True` in a command. The career pages show
+**All seasons** when the API confirms `filters.season` is `null`; if it returns
+a specific season or omits that confirmation, the bot explains that the result
+could not be confirmed rather than presenting it as all-season totals.
+This uses the provider's unfiltered career response without making a request
+for each individual season. Its historical coverage depends on the provider.
+
 Choose **Quick Play** or **Competitive** for the optional mode. Omitting season
 or mode leaves that filter at the API's default; this does not necessarily mean
 all-time data or all modes.
@@ -28,6 +36,7 @@ all-time data or all modes.
 ```text
 /stats player:Sypeh
 /stats player:Sypeh season:9.5 mode:Competitive
+/stats player:Sypeh all-seasons:True mode:Competitive
 ```
 
 ### Player stats pages
@@ -146,7 +155,8 @@ Tests use mocked API requests, fake Discord interactions, and dummy configuratio
 They do not load `.env` or require live Discord/API connections. Coverage includes
 API errors, rate-limit timing, shared requests, stats formatting, proficiency,
 pagination ownership, navigation expiry, season selection and labels, and season
-catalog validation and cache expiry.
+catalog validation and cache expiry. All-season checks cover conflicting options,
+mode filters, API confirmation, and separation from cached season-specific stats.
 
 To make a real username and career-stats lookup without starting Discord, run:
 

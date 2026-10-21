@@ -32,6 +32,12 @@ module.exports = {
         .setRequired(false)
         .setMinValue(0)
     )
+    .addBooleanOption((option) =>
+      option
+        .setName("all-seasons")
+        .setDescription("Show career stats across all seasons; omit the season option")
+        .setRequired(false)
+    )
     .addIntegerOption((option) =>
       option
         .setName("mode")
@@ -45,9 +51,17 @@ module.exports = {
   async execute(commandInteraction) {
     const username = commandInteraction.options.getString("player", true);
     const season = commandInteraction.options.getNumber("season");
+    const allSeasons = commandInteraction.options.getBoolean("all-seasons") ?? false;
     const mode = commandInteraction.options.getInteger("mode");
 
     await commandInteraction.deferReply();
+
+    if (allSeasons && season != null) {
+      await commandInteraction.editReply(
+        "Choose either a specific season or all-seasons:true."
+      );
+      return;
+    }
 
     const apiKey = process.env.MARVEL_RIVALS_API_KEY;
     const baseUrl = process.env.MARVEL_RIVALS_API_BASE_URL;
@@ -79,6 +93,13 @@ module.exports = {
       { season: seasonId, mode }
     );
 
+    if (allSeasons && result.filters.season !== null) {
+      await commandInteraction.editReply(
+        "The stats service did not confirm an all-seasons result. Please try again later."
+      );
+      return;
+    }
+
     let proficiency = null;
     try {
       proficiency = await getPlayerProficiencyByUid(
@@ -93,7 +114,8 @@ module.exports = {
       player,
       result,
       proficiency,
-      selectedSeason
+      selectedSeason,
+      allSeasons
     );
     await paginateEmbeds(commandInteraction, pages);
   },
