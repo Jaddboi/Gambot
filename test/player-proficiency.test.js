@@ -130,7 +130,11 @@ test("stats command switches the actual embed to proficiency and handles denied 
       return denied ? new Response(null, { status: 403 }) : Response.json(proficiency);
     }, async () => {
       await context.module.exports.execute({
-        user: { id: "owner" }, options: { getString: () => player.name },
+        user: { id: "owner" },
+        options: {
+          getString: () => player.name,
+          getInteger: () => null,
+        },
         deferReply: async () => {},
         editReply: async payload => { payloads.push(payload); return message; },
       });

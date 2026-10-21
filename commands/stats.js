@@ -6,9 +6,13 @@ const {
 const {
   getPlayerCareerStatsByUid,
 } = require("../lib/marvel-rivals-api/get-player-career-stats");
-const { buildPlayerStatsPages } = require("../lib/embeds/build-player-stats-pages");
+const {
+  buildPlayerStatsPages,
+} = require("../lib/embeds/build-player-stats-pages");
 const { paginateEmbeds } = require("../lib/paginate-embeds");
-const { getPlayerProficiencyByUid } = require("../lib/marvel-rivals-api/get-player-proficiency");
+const {
+  getPlayerProficiencyByUid,
+} = require("../lib/marvel-rivals-api/get-player-proficiency");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,9 +23,28 @@ module.exports = {
         .setName("player")
         .setDescription("The player's Marvel Rivals username")
         .setRequired(true)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("season")
+        .setDescription("The RivalsIsland season ID")
+        .setRequired(false)
+        .setMinValue(0)
+    )
+    .addIntegerOption((option) =>
+      option
+        .setName("mode")
+        .setDescription("The game mode to show stats for")
+        .setRequired(false)
+        .addChoices(
+          { name: "Quick Play", value: 1 },
+          { name: "Competitive", value: 2 }
+        )
     ),
   async execute(commandInteraction) {
     const username = commandInteraction.options.getString("player", true);
+    const season = commandInteraction.options.getInteger("season");
+    const mode = commandInteraction.options.getInteger("mode");
 
     await commandInteraction.deferReply();
 
@@ -30,11 +53,20 @@ module.exports = {
 
     const player = await searchPlayerByUsername(username, apiKey, baseUrl);
 
-    const result = await getPlayerCareerStatsByUid(player.uid, apiKey, baseUrl);
+    const result = await getPlayerCareerStatsByUid(
+      player.uid,
+      apiKey,
+      baseUrl,
+      { season, mode }
+    );
 
     let proficiency = null;
     try {
-      proficiency = await getPlayerProficiencyByUid(player.uid, apiKey, baseUrl);
+      proficiency = await getPlayerProficiencyByUid(
+        player.uid,
+        apiKey,
+        baseUrl
+      );
     } catch {
       // Proficiency access is optional; keep the career pages usable if it is denied or unavailable.
     }
