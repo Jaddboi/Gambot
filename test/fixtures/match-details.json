@@ -1,0 +1,28 @@
+{
+  "match_uid": "100001_1792598400_1001_11001_11",
+  "category": { "id": 1, "name": "Quick Play" },
+  "game_mode": "Domination",
+  "map": { "id": 1, "name": "Celestial Husk" },
+  "played_at": "2026-10-21T12:00:00Z",
+  "duration": { "seconds": 561, "formatted": "9m 21s" },
+  "winner_team_id": 2,
+  "draw": false,
+  "teams": [
+    { "id": 2, "score": 2, "result": "win" },
+    { "id": 1, "score": 0, "result": "loss" }
+  ],
+  "players": [
+    { "uid": "1001", "name": "CampusTank", "team_id": 2, "result": "win", "kills": 21, "deaths": 3, "assists": 20, "final_hits": 2, "damage": 16200, "damage_taken": 30800, "healing": 50, "accuracy": 0.35, "heroes": [{ "id": 1042, "name": "Peni Parker", "icon": null, "play_time": { "seconds": 561 } }] },
+    { "uid": "1002", "name": "NorthCampus", "team_id": 2, "result": "win", "kills": 11, "deaths": 4, "assists": 2, "final_hits": 6, "damage": 9200, "damage_taken": 22100, "healing": 0, "accuracy": 0.41, "heroes": [{ "id": 1034, "name": "Magneto", "icon": null }] },
+    { "uid": "1003", "name": "LibraryCarry", "team_id": 2, "result": "win", "kills": 25, "deaths": 1, "assists": 1, "final_hits": 11, "damage": 20100, "damage_taken": 21000, "healing": 0, "accuracy": 0.64, "mvp": true, "heroes": [{ "id": 1030, "name": "Moon Knight", "icon": null }] },
+    { "uid": "123456789", "name": "CampusPlayer", "team_id": 2, "result": "win", "kills": 22, "deaths": 6, "assists": 6, "final_hits": 15, "damage": 18600, "damage_taken": 9900, "healing": 0, "accuracy": 0.56, "heroes": [{ "id": 1020, "name": "Squirrel Girl", "icon": null, "play_time": { "seconds": 420 } }, { "id": 1024, "name": "Hela", "icon": null, "play_time": { "seconds": 141 } }] },
+    { "uid": "1005", "name": "StudyBreak", "team_id": 2, "result": "win", "kills": 13, "deaths": 6, "assists": 19, "final_hits": 5, "damage": 6800, "damage_taken": 8900, "healing": 23800, "accuracy": 0.37, "heroes": [{ "id": 1046, "name": "Adam Warlock", "icon": null }] },
+    { "uid": "1006", "name": "UTMHealer", "team_id": 2, "result": "win", "kills": 8, "deaths": 4, "assists": 28, "final_hits": 0, "damage": 5400, "damage_taken": 9900, "healing": 29200, "accuracy": 0.96, "heroes": [{ "id": 1031, "name": "Luna Snow", "icon": null }] },
+    { "uid": "2001", "name": "SouthCampus", "team_id": 1, "result": "loss", "kills": 10, "deaths": 7, "assists": 10, "final_hits": 5, "damage": 16000, "damage_taken": 35300, "healing": 6700, "accuracy": 0.49, "heroes": [{ "id": 1039, "name": "Thor", "icon": null }] },
+    { "uid": "2002", "name": "FinalsWeek", "team_id": 1, "result": "loss", "kills": 16, "deaths": 7, "assists": 2, "final_hits": 9, "damage": 12300, "damage_taken": 21000, "healing": 0, "accuracy": 0.81, "svp": true, "heroes": [{ "id": 1028, "name": "Ultron", "icon": null }] },
+    { "uid": "2003", "name": "Scarborough", "team_id": 1, "result": "loss", "kills": 11, "deaths": 6, "assists": 0, "final_hits": 4, "damage": 22900, "damage_taken": 12000, "healing": 872, "accuracy": 0.36, "heroes": [{ "id": 1032, "name": "Spider-Man", "icon": null }] },
+    { "uid": "2004", "name": "RobartsQueue", "team_id": 1, "result": "loss", "kills": 6, "deaths": 8, "assists": 1, "final_hits": 3, "damage": 16700, "damage_taken": 5600, "healing": 0, "accuracy": 0.39, "heroes": [{ "id": 1027, "name": "Star-Lord", "icon": null }] },
+    { "uid": "2005", "name": "CampusNight", "team_id": 1, "result": "loss", "kills": 12, "deaths": 5, "assists": 12, "final_hits": 2, "damage": 10000, "damage_taken": 10400, "healing": 15100, "accuracy": 0.54, "heroes": [{ "id": 1025, "name": "Cloak & Dagger", "icon": null }] },
+    { "uid": "2006", "name": "CoffeeAndRank", "team_id": 1, "result": "loss", "kills": 10, "deaths": 6, "assists": 22, "final_hits": 1, "damage": 8000, "damage_taken": 10100, "healing": 23200, "accuracy": 0.33, "heroes": [{ "id": 1023, "name": "Loki", "icon": null }] }
+  ]
+}

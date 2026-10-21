@@ -153,3 +153,65 @@ test("a failed button acknowledgement does not change the page or reject later u
   await flushUpdates();
   assert.deepEqual(h.state.edits.at(-1).embeds[0], h.pages[1].toJSON());
 });
+
+test("lazy pages acknowledge clicks immediately and update the embed and counter only after loading", async () => {
+  const h = harness(2);
+  let finishLoading;
+  let secondLoads = 0;
+  const first = h.pages[0].toJSON();
+  const second = h.pages[1].toJSON();
+  const loaders = [
+    async () => ({ embeds: [first], files: [{ name: "first.png", attachment: Buffer.from("first") }], attachments: [] }),
+    async () => {
+      secondLoads++;
+      return new Promise((resolve) => { finishLoading = resolve; });
+    },
+  ];
+  await paginateEmbeds(h.interaction, loaders);
+  h.click("next", "someone-else");
+  await flushUpdates();
+  assert.equal(secondLoads, 0);
+
+  const click = h.click("next");
+  assert.equal(click.acknowledgements, 1);
+  await flushUpdates();
+  assert.equal(secondLoads, 1);
+  assert.equal(h.state.edits.length, 0);
+  finishLoading({ embeds: [second], files: [{ name: "second.png", attachment: Buffer.from("second") }], attachments: [] });
+  await flushUpdates();
+  const loaded = h.state.edits[0];
+  assert.equal(loaded.content, "Page 2 / 2");
+  assert.deepEqual(loaded.embeds[0], second);
+  assert.deepEqual(loaded.attachments, []);
+  assert.equal(loaded.files[0].name, "second.png");
+
+  h.collector.stop("time");
+  await flushUpdates();
+  const expired = h.state.edits.at(-1);
+  assert.equal(expired.content, "Page 2 / 2");
+  assert.deepEqual(expired.embeds[0], second);
+  assert.equal(Object.hasOwn(expired, "files"), false);
+  assert.equal(Object.hasOwn(expired, "attachments"), false);
+  assert.ok(buttons(expired).every((button) => button.disabled));
+});
+
+test("attachment edits do not mutate cached lazy-page payloads when discord.js appends upload IDs", async () => {
+  const h = harness(2);
+  const pages = h.pages.map((embed) => ({
+    embeds: [embed.toJSON()], attachments: [], files: [{ name: "scoreboard.png", attachment: Buffer.from("image") }],
+  }));
+  let sends = 0;
+  h.interaction.editReply = async (payload) => {
+    assert.deepEqual(payload.attachments, []);
+    payload.attachments.push({ id: "0" });
+    sends++;
+    return h.message;
+  };
+  await paginateEmbeds(h.interaction, pages.map((page) => async () => page));
+  h.click("next");
+  await flushUpdates();
+  h.click("previous");
+  await flushUpdates();
+  assert.equal(sends, 3);
+  assert.ok(pages.every((page) => page.attachments.length === 0));
+});
