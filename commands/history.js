@@ -8,8 +8,8 @@ const {
 } = require("../lib/marvel-rivals-api/get-player-match-history");
 const {
   createDetailedHistoryPages,
-} = require("../lib/scoreboards/create-detailed-history-pages");
-const { paginateEmbeds } = require("../lib/paginate-embeds");
+} = require("../lib/services/create-detailed-history-pages");
+const { paginateEmbeds } = require("../lib/discord/paginate-embeds");
 
 module.exports = {
   data: new SlashCommandBuilder()

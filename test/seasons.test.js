@@ -1,16 +1,13 @@
 // Tests season lookup, caching, selection, and labels using dummy settings and mocked requests.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
-const { createRequire } = require("node:module");
+const { loadCommand } = require("./helpers/load-command.cjs");
 const { EventEmitter } = require("node:events");
 const { ApplicationCommandOptionType } = require("discord.js");
 const { clearCache } = require("../lib/cache");
 const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
 const { getSeasons } = require("../lib/marvel-rivals-api/get-seasons");
-const { buildPlayerStatsPages } = require("../lib/embeds/build-player-stats-pages");
+const { buildPlayerStatsPages } = require("../lib/embeds/stats/build-player-stats-pages");
 
 const apiKey = "dummy-key";
 const baseUrl = "https://season-tests.example";
@@ -67,17 +64,7 @@ async function withFakeApi(check) {
   }
 }
 
-function loadStatsCommand() {
-  // Only the command sees this isolated dummy process object; never load dotenv or real credentials.
-  const filename = path.resolve(__dirname, "../commands/stats.js");
-  const context = {
-    require: createRequire(filename),
-    module: { exports: {} },
-    process: { env: { MARVEL_RIVALS_API_KEY: apiKey, MARVEL_RIVALS_API_BASE_URL: baseUrl } },
-  };
-  vm.runInNewContext(fs.readFileSync(filename, "utf8"), context, { filename });
-  return context.module.exports;
-}
+const loadStatsCommand = () => loadCommand("stats", { apiKey, baseUrl });
 
 async function executeStats(season, mode = null, allSeasons = null) {
   const payloads = [];
@@ -242,9 +229,9 @@ test("career pages show the public number only for a matching returned season ID
     [312, null, "Season ID: 312"],
     [null, null, "API default season"],
   ]) {
-    const pages = buildPlayerStatsPages(player, {
+    const pages = buildPlayerStatsPages({ player, result: {
       player, career: {}, filters: { season: returnedId, game_mode: 1 },
-    }, null, selected).map((page) => page.toJSON());
+    }, proficiency: null, selectedSeason: selected }).map((page) => page.toJSON());
     for (const page of pages.slice(0, 3)) {
       assert.equal(page.description, `Career stats • ${label} • Quick Play`);
     }
@@ -335,7 +322,7 @@ test("all-seasons labels apply to all career pages without changing rank metadat
     career: {},
     filters: { season: null, game_mode: 2 },
   };
-  const pages = buildPlayerStatsPages(player, result, null, null, true).map((page) => page.toJSON());
+  const pages = buildPlayerStatsPages({ player, result, allSeasons: true }).map((page) => page.toJSON());
   for (const page of pages.slice(0, 3)) {
     assert.equal(page.description, "Career stats • All seasons • Competitive");
   }
@@ -343,7 +330,7 @@ test("all-seasons labels apply to all career pages without changing rank metadat
   assert.doesNotMatch(pages[3].description, /All seasons/);
 
   for (const [filters, label] of [[{ season: 312 }, "Season ID: 312"], [{}, "API default season"]]) {
-    const [overview] = buildPlayerStatsPages(player, { ...result, filters }, null, null, true);
+    const [overview] = buildPlayerStatsPages({ player, result: { ...result, filters }, allSeasons: true });
     assert.equal(overview.toJSON().description, `Career stats • ${label} • API default mode`);
   }
 });

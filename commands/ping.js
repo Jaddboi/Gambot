@@ -6,12 +6,12 @@ module.exports = {
     .setName("ping")
     .setDescription("Replies with pong and latency information"),
   async execute(commandInteraction) {
-    const sent = await commandInteraction.reply({
+    const response = await commandInteraction.reply({
       content: "Pinging...",
-      fetchReply: true,
+      withResponse: true,
     });
 
-    const pingTime = sent.createdTimestamp - commandInteraction.createdTimestamp;
+    const pingTime = response.resource.message.createdTimestamp - commandInteraction.createdTimestamp;
 
     await commandInteraction.editReply(
       `Pong!\nBot Latency: ${pingTime}ms\nAPI Latency: ${Math.round(

@@ -1,23 +1,26 @@
 // Tests stats page content and missing-data formatting without API calls.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { buildPlayerStatsPages } = require("../lib/embeds/build-player-stats-pages");
+const { buildPlayerStatsPages } = require("../lib/embeds/stats/build-player-stats-pages");
 
 const player = { uid: "123456789", name: "Dummy Player", account_level: 84 };
 const fieldValue = (page, name) => page.fields.find(field => field.name === name).value;
 
 test("stats pages expose overview, combat, impact, and proficiency availability", () => {
-  const pages = buildPlayerStatsPages(player, {
-    player: {
-      ...player,
-      rank: { rank: "Diamond I", peak_rank: "Grandmaster III", season: "Test Season", rank_score: 4200 },
-    },
-    career: {
-      matches: 40, wins: 25, play_time: { formatted: "12h 30m", seconds: 45000 },
-      kills: 550, deaths: 200, assists: 300, kd: 2.75, kda: 4.25,
-      best_kill_streak: 18, final_hits: 300, headshot_kills: 40, solo_kills: 25,
-      damage: 1250000, healing: 500000, damage_taken: 900000, mvp: 8, svp: 3,
-      triple_kills: 12, quadruple_kills: 4, quintuple_kills: 2, sextuple_kills: 1,
+  const pages = buildPlayerStatsPages({
+    player,
+    result: {
+      player: {
+        ...player,
+        rank: { rank: "Diamond I", peak_rank: "Grandmaster III", season: "Test Season", rank_score: 4200 },
+      },
+      career: {
+        matches: 40, wins: 25, play_time: { formatted: "12h 30m", seconds: 45000 },
+        kills: 550, deaths: 200, assists: 300, kd: 2.75, kda: 4.25,
+        best_kill_streak: 18, final_hits: 300, headshot_kills: 40, solo_kills: 25,
+        damage: 1250000, healing: 500000, damage_taken: 900000, mvp: 8, svp: 3,
+        triple_kills: 12, quadruple_kills: 4, quintuple_kills: 2, sextuple_kills: 1,
+      },
     },
   }).map(page => page.toJSON());
 
@@ -40,9 +43,12 @@ test("stats pages expose overview, combat, impact, and proficiency availability"
 });
 
 test("zero statistics remain zero and missing values are not called unranked or zero", () => {
-  const pages = buildPlayerStatsPages(player, {
-    player: { ...player, account_level: 0, rank: null },
-    career: { matches: 0, wins: 0, kills: 0, kd: 0, healing: 0, play_time: { seconds: 0 } },
+  const pages = buildPlayerStatsPages({
+    player,
+    result: {
+      player: { ...player, account_level: 0, rank: null },
+      career: { matches: 0, wins: 0, kills: 0, kd: 0, healing: 0, play_time: { seconds: 0 } },
+    },
   }).map(page => page.toJSON());
 
   assert.equal(fieldValue(pages[0], "Matches"), "0");
@@ -62,15 +68,18 @@ test("win rate preserves a zero percent rate and rejects impossible totals", () 
     [10, 0, "0.0%"], [10, 10, "100.0%"], [10, 11, "Unavailable"],
     [10, null, "Unavailable"], [null, 1, "Unavailable"], [-1, 0, "Unavailable"],
   ]) {
-    const [overview] = buildPlayerStatsPages(player, { career: { matches, wins } });
+    const [overview] = buildPlayerStatsPages({ player, result: { career: { matches, wins } } });
     assert.equal(fieldValue(overview.toJSON(), "Win rate"), expected);
   }
 });
 
 test("playtime falls back to seconds and API text stays within field limits", () => {
-  const [overview] = buildPlayerStatsPages(player, {
-    player: { ...player, rank: { rank: "A".repeat(2000) } },
-    career: { play_time: { seconds: 3661 } },
+  const [overview] = buildPlayerStatsPages({
+    player,
+    result: {
+      player: { ...player, rank: { rank: "A".repeat(2000) } },
+      career: { play_time: { seconds: 3661 } },
+    },
   });
   const data = overview.toJSON();
   assert.equal(fieldValue(data, "Playtime"), "1h 1m");

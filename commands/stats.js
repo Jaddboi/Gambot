@@ -8,12 +8,12 @@ const {
 } = require("../lib/marvel-rivals-api/get-player-career-stats");
 const {
   buildPlayerStatsPages,
-} = require("../lib/embeds/build-player-stats-pages");
-const { paginateEmbeds } = require("../lib/paginate-embeds");
+} = require("../lib/embeds/stats/build-player-stats-pages");
+const { paginateEmbeds } = require("../lib/discord/paginate-embeds");
 const {
   getPlayerProficiencyByUid,
 } = require("../lib/marvel-rivals-api/get-player-proficiency");
-const { getSeasons } = require("../lib/marvel-rivals-api/get-seasons");
+const { resolveSeason } = require("../lib/services/resolve-season");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -66,23 +66,12 @@ module.exports = {
     const apiKey = process.env.MARVEL_RIVALS_API_KEY;
     const baseUrl = process.env.MARVEL_RIVALS_API_BASE_URL;
 
-    let seasonId = null;
-    let selectedSeason = null;
-
-    if (season != null) {
-      const seasons = await getSeasons(apiKey, baseUrl);
-
-      selectedSeason = seasons.find((entry) => Number(entry.number) === season);
-
-      if (!selectedSeason) {
-        await commandInteraction.editReply(
-          "That season is unavailable. Please choose an existing season."
-        );
-        return;
-      }
-
-      seasonId = selectedSeason.id;
+    const selectedSeason = await resolveSeason(season, apiKey, baseUrl);
+    if (season != null && !selectedSeason) {
+      await commandInteraction.editReply("That season is unavailable. Please choose an existing season.");
+      return;
     }
+    const seasonId = selectedSeason?.id ?? null;
 
     const player = await searchPlayerByUsername(username, apiKey, baseUrl);
 
@@ -110,13 +99,13 @@ module.exports = {
     } catch {
       // Proficiency access is optional; keep the career pages usable if it is denied or unavailable.
     }
-    const pages = buildPlayerStatsPages(
+    const pages = buildPlayerStatsPages({
       player,
       result,
       proficiency,
       selectedSeason,
-      allSeasons
-    );
+      allSeasons,
+    });
     await paginateEmbeds(commandInteraction, pages);
   },
 };
