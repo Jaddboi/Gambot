@@ -110,29 +110,44 @@ access restrictions. [Provider documentation](https://api.rivalsisland.com/docs#
 
 The username is required. The optional mode selects **Quick Play** or
 **Competitive**; omitted mode adds no category filter to the API request.
-Standard two-team matches show exactly **three cards**: the existing overview
-and one text leaderboard for each team, with both teams visible together.
-Each table puts the player's name directly beside K/D/A, final hits, damage,
-damage taken, healing, and accuracy. One hero (the most time played) appears
-beneath each player's row, with MVP/SVP labels when available. Tables are sorted
-by kills; **>** marks the searched player. The overview retains its hero thumbnail
-when the API provides a trusted icon URL. Damage taken is not damage blocked.
+Standard two-team matches show **two cards**: the existing overview and one
+combined scoreboard image containing both teams under a shared column header.
+The searched player's team appears first, even after a loss. Images use alternating
+dark rows, green/red result headers, hero portraits, rank badges, MVP/SVP labels,
+and a gold highlight for the searched player. Columns show player, rank, K/D/A,
+final hits, damage, damage taken, healing, and accuracy. Each player uses one hero
+(the most time played); rows are sorted by kills. Open an image for the full-size view.
+
+Ranks come from the match's **after-match** rank data, with the reported RS and
+signed score change. Team average score and average change appear only when all
+team members have the corresponding data. These use the match-detail response
+without extra Premium rank-history requests. Missing ranks remain unavailable.
+Damage taken stays labeled **TAKEN**; it is not damage blocked.
 
 Previous/Next controls are available only to the invoking user for two minutes.
-Full details load only for the visible match. Opened cards are reused during
-that view, so returning to a match does not make another detail request or
-build it again. Each uncached match-detail lookup costs **5 API credits** under
+Full details load only for the visible match. Opened cards and rendered PNGs are
+reused during that view, so returning to a match does not make another detail
+request or render it again. Page changes replace the old image attachments, and
+control expiry preserves the existing uploads. Each uncached match-detail lookup costs **5 API credits** under
 the [provider's documented pricing](https://api.rivalsisland.com/docs#matches),
 in addition to username/history requests.
 
-If full details cannot load, the command shows the existing match summary with
-available rank changes and K/D/A. Missing stats display as unavailable rather
-than zero. Tables use native Discord code blocks, without image rendering or
-attachment uploads. Discord loads the overview thumbnail directly; the bot does
-not download portraits or wait for them. API requests can still add loading time.
-Long names are shortened to keep columns aligned. Unusually large rosters or
-more than two teams are shortened with a notice to stay within embed limits.
-Individual modes show one participant table rather than inventing a second team.
+If rendering fails, the command keeps the overview and falls back to native text
+tables. If full match details cannot load, it shows the existing match summary
+with available rank changes and K/D/A. Missing stats display as unavailable
+rather than zero. Failed portrait/badge downloads use placeholders and do not
+prevent rendering. Only trusted provider PNGs are downloaded, without API keys
+or redirects, with a two-second total download budget and six concurrent requests.
+Images are limited to 512 KiB and 2048 pixels per dimension and cached separately
+for one day, with at most 64 cached images. The overview thumbnail remains native.
+
+The renderer uses `@resvg/resvg-js` and bundled Noto Sans fonts under the
+[SIL Open Font License](assets/fonts/OFL.txt). Font sources are from
+[Noto Fonts](https://github.com/notofonts/noto-fonts).
+Long names are clipped to their columns. Images show at most 12 players per team
+with a truncation notice and retain the searched player when present. More than
+two teams are shortened with a notice. Individual modes show one participant
+scoreboard rather than inventing a second team.
 
 The command currently requests **API page 0 with a page size of 20**. The provider
 can return fewer matches, including an empty page. Buttons navigate only those
@@ -187,7 +202,7 @@ Optional presence settings:
 Use your application's installation settings in the
 [Discord Developer Portal](https://discord.com/developers/applications) to invite
 the bot with the `bot` and `applications.commands` scopes. Allow it to view the
-test channel, send messages, and embed links.
+test channel, send messages, embed links, and **attach files** for scoreboard images.
 
 ### 4. Register slash commands
 
@@ -234,7 +249,8 @@ pagination ownership, navigation expiry, season selection and labels, and season
 catalog validation and cache expiry. All-season checks cover conflicting options,
 mode filters, API confirmation, and separation from cached season-specific stats.
 History checks cover request and response validation, cache expiry and mode
-separation, named table rows, three-card match layouts, native hero thumbnails, and embed limits,
+separation, text-table fallback, combined scoreboard layouts, native overview thumbnails,
+PNG rendering, safe image downloads, missing ranks, attachment replacement,
 summary fallback, navigation expiry, and lazy detail loading during navigation.
 Rank checks cover season-specific history, all-time peak comparison, platform
 separation, conflicting options, missing data, validation, and cache isolation.
@@ -274,9 +290,10 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `lib/discord/set-presence.js` | Applies the configured status and activity. |
 | `lib/embeds/stats/` | Builds career and proficiency pages; combines them with page numbering. |
 | `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
+| `lib/rendering/history/` | Loads bounded public images and renders team scoreboards as PNGs. |
 | `lib/embeds/rank/` | Builds latest/season rank cards and the all-time peak card. |
-| `lib/services/` | Resolves public seasons and assembles lazy history pages. |
-| `lib/formatting/` | Shared number, rank-change, and Markdown text formatting. |
+| `lib/services/` | Resolves public seasons and assembles lazy history messages with images or text fallbacks. |
+| `lib/formatting/` | Shared numbers, accuracy, rank labels/badges, and Markdown text formatting. |
 | `lib/discord/paginate-embeds.js` | Handles message-scoped page navigation. |
 | `lib/cache.js` | Stores completed results with expiry and a size limit. |
 | `lib/cooldowns.js` | Tracks per-user, per-command cooldowns. |
@@ -304,9 +321,9 @@ only after validation, and remove failed pending requests so later calls can ret
   page size, and mode category. Different filters use separate entries.
   Rank history caches each selected season separately from unfiltered all-time data.
   Username search is not cached.
-- `lib/marvel-rivals-api/cached-request.js` shares identical pending career, proficiency, rank-history, and match-detail requests,
-  including response validation. Failed lookups are removed so they can be retried.
-  History and season lookups cache completed results but do not share pending requests.
+- `lib/marvel-rivals-api/cached-request.js` handles caching and shares identical
+  pending requests for all six cached endpoints, including response validation.
+  Failed lookups are removed so they can be retried. Username search remains uncached.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
   API origin are blocked locally until the retry deadline. The client respects
   retry headers, using a one-second fallback when neither supplies a valid delay.

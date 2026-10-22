@@ -190,3 +190,24 @@ test("lazy pages acknowledge clicks immediately and update the embed and counter
   assert.deepEqual(expired.embeds[0], second);
   assert.ok(buttons(expired).every((button) => button.disabled));
 });
+
+test("image pages replace attachments during navigation and preserve uploads when controls expire", async () => {
+  const h = harness(2);
+  const pages = h.pages.map((embed, index) => async () => ({
+    embeds: [embed.toJSON()],
+    files: [{ name: `team-${index}.png`, attachment: Buffer.from(`png-${index}`) }],
+    attachments: [],
+  }));
+  await paginateEmbeds(h.interaction, pages);
+  assert.equal(h.state.initial.files[0].name, "team-0.png");
+  assert.deepEqual(h.state.initial.attachments, []);
+  h.click("next");
+  await flushUpdates();
+  assert.equal(h.state.edits[0].files[0].name, "team-1.png");
+  assert.deepEqual(h.state.edits[0].attachments, []);
+  h.collector.stop("time");
+  await flushUpdates();
+  assert.equal(h.state.edits[1].files, undefined);
+  assert.equal(h.state.edits[1].attachments, undefined);
+  assert.ok(buttons(h.state.edits[1]).every((button) => button.disabled));
+});
