@@ -160,3 +160,25 @@ test("successful detail pages do not build unused fallback summaries", async () 
     assert.equal(payload.files.length, 1);
   });
 });
+
+test("standalone lookups reuse the scoreboard without history labels or page numbering", async () => {
+  const payload = await createMatchScoreboardMessage(player, fixture);
+  assert.equal(payload.embeds[0].title, "CampusPlayer — Match Details");
+  assert.match(payload.embeds[0].footer.text, /^UID: 123456789/);
+  assert.equal(payload.embeds[0].footer.text.includes("Match 1 / 1"), false);
+  assert.equal(payload.embeds[1].image.url, "attachment://match-scoreboard.png");
+  assert.equal(payload.files[0].name, "match-scoreboard.png");
+});
+
+test("standalone rendering failures keep the correct Match Details title in text fallbacks", async (t) => {
+  t.mock.method(console, "error", () => {});
+  const data = structuredClone(fixture);
+  Object.defineProperty(data.players[0], "rank", { get() { throw new Error("Simulated rendering failure"); } });
+  const payload = await createMatchScoreboardMessage(player, data);
+  assert.equal(payload.embeds.length, 3);
+  assert.equal(payload.embeds[0].title, "CampusPlayer — Match Details");
+  assert.match(payload.embeds[0].footer.text, /^UID: 123456789/);
+  assert.match(payload.embeds[1].description, /```text/);
+  assert.deepEqual(payload.files, []);
+  assert.deepEqual(payload.attachments, []);
+});
