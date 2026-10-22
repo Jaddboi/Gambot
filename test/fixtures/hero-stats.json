@@ -1,0 +1,39 @@
+{
+  "player": { "uid": "123456789", "name": "CampusPlayer" },
+  "hero": {
+    "id": 1039,
+    "name": "SPIDER-MAN",
+    "icon": "https://assets.rivalsisland.com/v1/test/heroes/1039_regular.png"
+  },
+  "filters": { "season": null, "game_mode": null, "device_type": null },
+  "career": {
+    "matches": 12.5,
+    "wins": 8.25,
+    "win_rate": 0.66,
+    "play_time": { "seconds": 7560, "formatted": "2h 6m" },
+    "kills": 100,
+    "deaths": 20,
+    "assists": 40,
+    "kd": 5,
+    "kda": 7,
+    "accuracy": 0.425,
+    "damage": 100500,
+    "healing": 0,
+    "damage_taken": 40120,
+    "triple_kills": 4,
+    "quadruple_kills": 2,
+    "quintuple_kills": 1,
+    "sextuple_kills": 0,
+    "mvp": 2,
+    "svp": 1,
+    "best": {
+      "kills": 30,
+      "assists": 12,
+      "final_hits": 18,
+      "headshot_kills": 0,
+      "solo_kills": 7,
+      "damage": 25100,
+      "healing": 0
+    }
+  }
+}

@@ -133,6 +133,15 @@ test("ping help distinguishes Discord latency from the game data service", () =>
   assert.match(embedText(buildHelpEmbed("ping").toJSON()), /Discord's gateway, not the Marvel Rivals data service/);
 });
 
+test("hero-stats help distinguishes performance from proficiency and explains fractional totals", () => {
+  const text = embedText(buildHelpEmbed("hero-stats").toJSON());
+  assert.match(text, /hero:<name> player:<username>/);
+  assert.match(text, /season:9\.5 mode:Competitive/);
+  assert.match(text, /Overview, Impact, and Personal Bests/);
+  assert.match(text, /fractional because switching heroes splits match credit/);
+  assert.match(text, /not Premium hero proficiency; no proficiency lookup is made/);
+});
+
 test("unknown selections offer the overview without echoing untrusted input", async () => {
   const reply = await getHelpReply("@everyone <@123456789> unknown");
   const text = embedText(reply.embeds[0].toJSON());
