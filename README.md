@@ -4,8 +4,8 @@ A Discord bot for the University of Toronto Marvel Rivals community, built with
 [discord.js](https://discord.js.org/) and the
 [RivalsIsland API](https://api.rivalsisland.com/docs).
 
-Gambot currently provides player stats, rank lookups, and recent match history in
-embeds. Account linking, standalone match lookup, patch notes, and community tools
+Gambot currently provides player stats, rank lookups, recent match history, and
+standalone match scoreboards. Account linking, patch notes, and community tools
 are planned features.
 
 ## Available commands
@@ -16,6 +16,7 @@ are planned features.
 | `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
 | `/rank player:<username> [season:<number>] [all-time:<boolean>]` | Shows the latest reported rank, a selected season's ranks, or the highest reported peak across available seasons. Seasonal and all-time lookups require API Premium access. |
 | `/history player:<username> [mode:<mode>]` | Automatically shows a full scoreboard for each opened match, including both teams, heroes, combat stats, and a highlighted player. |
+| `/match player:<username> match-id:<full-match-id>` | Opens one match directly, showing its overview and combined scoreboard from the selected player's perspective. |
 
 ### Season and mode filters
 
@@ -152,8 +153,35 @@ scoreboard rather than inventing a second team.
 The command currently requests **API page 0 with a page size of 20**. The provider
 can return fewer matches, including an empty page. Buttons navigate only those
 returned matches and do not fetch older history pages. An empty-page message
-does not mean the player has never played. A standalone `/match` command remains
-planned; `/history` now provides full match cards automatically.
+does not mean the player has never played. Use `/match` to open one available
+match directly by its full match ID.
+
+### Standalone match lookup
+
+```text
+/match player:Sypeh match-id:<full-match-id-from-history>
+```
+
+Both options are required. Copy the **Match ID** printed in a `/history` overview
+and replace the placeholder above. The full API match ID contains five groups
+of digits separated by underscores. Short numeric replay codes shown on other
+sites are not supported. Invalid IDs are rejected before any API requests.
+
+The command searches the username, fetches that exact match, and checks the
+player's UID against its participants. Missing players, missing matches, and
+players who did not participate receive an explanation. It does not fetch the
+player's history first or require the match to be on the newest history page;
+availability still depends on the API.
+
+The reply shows a **Match Details** overview and the same combined team
+scoreboard used by `/history`, including the selected-player highlight. A single
+match has no navigation buttons or history page numbering. Rendering failures
+use the existing text-table fallback. The bot needs **Attach Files** permission
+to display the rendered image.
+
+Match details use the same 60-second cache as `/history`. An uncached match
+request has the existing match-detail credit cost, in addition to username
+lookup; `/match` does not make a separate history request.
 
 ## Setup
 
@@ -254,6 +282,9 @@ PNG rendering, safe image downloads, missing ranks, attachment replacement,
 summary fallback, navigation expiry, and lazy detail loading during navigation.
 Rank checks cover season-specific history, all-time peak comparison, platform
 separation, conflicting options, missing data, validation, and cache isolation.
+Standalone match checks cover full-ID validation, participant UID matching,
+missing players/matches, cache reuse, image attachments, and standalone labels
+in both rendered and fallback replies.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -343,7 +374,7 @@ access requirements will be checked as each feature is implemented.
 | Saved accounts | `/account link uid`, `/account unlink`. Save an association with a Discord account; this does not verify ownership. |
 | Expanded stats | Linked-account defaults for an omitted player and most-played hero performance in `/stats`; season and mode filters are already available. |
 | Expanded ranks | Linked-account defaults and rank progression over time; latest, seasonal, and all-time peak lookups are available through `/rank`. |
-| Expanded matches | Older history-page fetching, linked-account defaults for `/history`, and a standalone `/match player match-id`; history already opens full scoreboards automatically. |
+| Expanded matches | Older history-page fetching and linked-account defaults; `/history` and standalone `/match player match-id` already show full scoreboards. |
 | Hero performance | `/player-hero hero [player] [season]` and `/compare player-a player-b [hero]`, using consistent season/mode settings. |
 | Refresh | `/refresh [player]` to request updates and show the refresh cooldown. |
 | Patch notes | `/patch latest`, `/patch list`. |
