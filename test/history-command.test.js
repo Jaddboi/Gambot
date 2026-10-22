@@ -6,6 +6,8 @@ const { EventEmitter, once } = require("node:events");
 const { clearCache } = require("../lib/cache");
 const { clearRateLimits } = require("../lib/marvel-rivals-api/request");
 const fixture = require("./fixtures/match-details.json");
+const { clearScoreboardImageCache } = require("../lib/rendering/history/load-scoreboard-images");
+const portrait = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=", "base64");
 
 const player = { uid: "123456789", name: "Dummy Player" };
 const matches = ["win", "loss"].map((result, index) => ({
@@ -35,10 +37,15 @@ async function runHistory(mode, returnedMatches, check) {
 
   clearCache();
   clearRateLimits();
+  clearScoreboardImageCache();
   globalThis.fetch = async (input, options) => {
     assert.ok(deferred, "Acknowledge before making API requests");
-    assert.equal(options.headers["x-api-key"], "dummy-key");
     const url = new URL(input);
+    if (url.origin === "https://assets.rivalsisland.com") {
+      assert.equal(options.headers["x-api-key"], undefined);
+      return new Response(portrait, { headers: { "content-type": "image/png" } });
+    }
+    assert.equal(options.headers["x-api-key"], "dummy-key");
     requests.push(url);
     assert.equal(url.origin, "https://history-command.example");
     if (url.pathname === "/players/search") {
@@ -86,6 +93,7 @@ async function runHistory(mode, returnedMatches, check) {
     globalThis.fetch = originalFetch;
     clearCache();
     clearRateLimits();
+    clearScoreboardImageCache();
   }
 }
 
@@ -97,9 +105,11 @@ test("history automatically loads visible scoreboards and reuses them on back na
       assert.match(payloads[0].embeds[0].description, /^Result: \*\*win\*\*/);
       assert.equal(payloads[0].embeds[0].image, undefined);
       assert.equal(payloads[0].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/squirrel-girl.png");
-      assert.equal(payloads[0].embeds.length, 3);
-      assert.ok(payloads[0].embeds[1].description.includes("> CampusPlayer"));
-      assert.ok(payloads[0].embeds[1].description.includes("Squirrel Girl"));
+      assert.equal(payloads[0].embeds.length, 2);
+      assert.equal(payloads[0].embeds[1].image.url, "attachment://history-0-scoreboard.png");
+      assert.equal(payloads[0].files.length, 1);
+      assert.ok(Buffer.isBuffer(payloads[0].files[0].attachment));
+      assert.deepEqual(payloads[0].attachments, []);
       assert.equal(payloads[0].components.length, 1, "Only match navigation should be visible");
       assert.equal(requests.length, 3, "Only the first visible match should load initially");
 
@@ -117,12 +127,14 @@ test("history automatically loads visible scoreboards and reuses them on back na
       }
       assert.equal(payloads[1].content, "Page 2 / 2");
       assert.equal(payloads[1].embeds[0].image, undefined);
-      assert.equal(payloads[1].embeds[1].title, "Team 1 · WIN · Score 2");
-      assert.equal(payloads[1].embeds[2].title, "Team 2 · LOSS · Score 0");
-      assert.equal(payloads[1].embeds.length, 3);
+      assert.equal(payloads[1].embeds[1].title, "Match scoreboard");
+      assert.equal(payloads[1].embeds.length, 2);
       assert.equal(payloads[1].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/moon-knight.png");
       assert.equal(payloads[2].content, "Page 1 / 2");
       assert.equal(payloads[2].embeds[0].thumbnail.url, "https://assets.rivalsisland.com/squirrel-girl.png");
+      assert.equal(payloads[1].embeds[1].image.url, "attachment://history-1-scoreboard.png");
+      assert.equal(payloads[1].files[0].name, "history-1-scoreboard.png");
+      assert.strictEqual(payloads[2].files[0].attachment, payloads[0].files[0].attachment, "Back navigation reuses rendered PNGs");
       assert.equal(requests.length, 4, "Returning to an opened match must not fetch its details again");
     });
   }
@@ -142,9 +154,9 @@ test("one returned match shows both team tables without any navigation controls"
   await runHistory(null, [matches[0]], async ({ requests, payloads, collectorCount }) => {
     assert.equal(collectorCount, 0);
     assert.deepEqual(payloads[0].components, []);
-    assert.equal(payloads[0].embeds.length, 3);
-    assert.equal(payloads[0].embeds[1].title, "Team 2 · WIN · Score 2");
-    assert.equal(payloads[0].embeds[2].title, "Team 1 · LOSS · Score 0");
+    assert.equal(payloads[0].embeds.length, 2);
+    assert.equal(payloads[0].embeds[1].title, "Match scoreboard");
+    assert.equal(payloads[0].files.length, 1);
     assert.equal(requests.length, 3);
   });
 });
