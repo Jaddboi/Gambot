@@ -17,6 +17,22 @@ are planned features.
 | `/rank player:<username> [season:<number>] [all-time:<boolean>]` | Shows the latest reported rank, a selected season's ranks, or the highest reported peak across available seasons. Seasonal and all-time lookups require API Premium access. |
 | `/history player:<username> [mode:<mode>]` | Automatically shows a full scoreboard for each opened match, including both teams, heroes, combat stats, and a highlighted player. |
 | `/match player:<username> match-id:<full-match-id>` | Opens one match directly, showing its overview and combined scoreboard from the selected player's perspective. |
+| `/help [command:<name>]` | Privately explains available commands, options, examples, Premium access, and data freshness. |
+
+### Command help
+
+Use `/help` for the available command list or select a command for its full guide:
+
+```text
+/help
+/help command:stats
+/help command:match
+```
+
+Replies are visible only to you and make no game API requests. The menu explains
+required usernames, optional season/mode filters, Premium-only features, full
+match IDs, navigation limits, and cache freshness. The usual five-second
+per-user, per-command cooldown still applies.
 
 ### Season and mode filters
 
@@ -252,6 +268,7 @@ Keep the process running and wait for the ready message. In Discord, try:
 
 ```text
 /ping
+/help
 /stats player:Sypeh
 /stats player:Sypeh season:9.5 mode:Competitive
 /history player:Sypeh mode:Competitive
@@ -285,6 +302,8 @@ separation, conflicting options, missing data, validation, and cache isolation.
 Standalone match checks cover full-ID validation, participant UID matching,
 missing players/matches, cache reuse, image attachments, and standalone labels
 in both rendered and fallback replies.
+Help checks cover command/option coverage, private replies without API access,
+examples, Premium and cache explanations, unknown selections, and embed limits.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -323,6 +342,8 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
 | `lib/rendering/history/` | Loads bounded public images and renders team scoreboards as PNGs. |
 | `lib/embeds/rank/` | Builds latest/season rank cards and the all-time peak card. |
+| `lib/help/command-guides.js` | Stores command usage, examples, and limitations for the help menu. |
+| `lib/embeds/help/` | Builds the help overview and detailed command guides. |
 | `lib/services/` | Resolves public seasons and assembles lazy history messages with images or text fallbacks. |
 | `lib/formatting/` | Shared numbers, accuracy, rank labels/badges, and Markdown text formatting. |
 | `lib/discord/paginate-embeds.js` | Handles message-scoped page navigation. |
@@ -386,7 +407,7 @@ access requirements will be checked as each feature is implemented.
 | Events and teams | `/event create`, `/event list`, `/event rsvp`, `/teams balance`. |
 | Privacy | `/privacy leaderboard on\|off`, `/privacy delete` for stored associations, preferences, and retained personal stats. |
 | Server administration | `/config announcements channel`, `/config roles`; rank roles need trustworthy account verification. |
-| Help and status | `/help [command]`, `/status`. |
+| Status | `/status` for bot/API availability and cache freshness; `/help [command]` is already available. |
 
 ## Development workflow
 
