@@ -4,7 +4,7 @@ A Discord bot for the University of Toronto Marvel Rivals community, built with
 [discord.js](https://discord.js.org/) and the
 [RivalsIsland API](https://api.rivalsisland.com/docs).
 
-Gambot currently provides player stats, rank lookups, recent match history, and
+Gambot currently provides player and hero stats, rank lookups, recent match history, and
 standalone match scoreboards. Account linking, patch notes, and community tools
 are planned features.
 
@@ -14,6 +14,7 @@ are planned features.
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
 | `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
+| `/hero-stats hero:<name> player:<username> [season:<number>] [mode:<mode>]` | Shows one hero's career performance, impact, and personal bests for the selected player. |
 | `/rank player:<username> [season:<number>] [all-time:<boolean>]` | Shows the latest reported rank, a selected season's ranks, or the highest reported peak across available seasons. Seasonal and all-time lookups require API Premium access. |
 | `/history player:<username> [mode:<mode>]` | Automatically shows a full scoreboard for each opened match, including both teams, heroes, combat stats, and a highlighted player. |
 | `/match player:<username> match-id:<full-match-id>` | Opens one match directly, showing its overview and combined scoreboard from the selected player's perspective. |
@@ -85,6 +86,42 @@ Hero proficiency comes from a separate endpoint and is not filtered by season or
 Premium-only. Gambot attempts that lookup and shows an availability explanation
 if it fails; career stats remain usable.
 [Provider documentation](https://api.rivalsisland.com/docs).
+
+### Player hero stats
+
+```text
+/hero-stats hero:Spider-Man player:Sypeh
+/hero-stats hero:Iron Man player:Sypeh season:9.5 mode:Competitive
+```
+
+Both the hero and username are required. Hero names come from the API catalog;
+capitalization, spaces, and punctuation are ignored, so `spiderman` matches
+`SPIDER-MAN`. Incomplete or ambiguous names are not guessed: the bot suggests
+full catalog names when available. Role forms must use their specific names.
+
+Season numbers use the same catalog lookup as `/stats`, including half seasons.
+Choose Quick Play or Competitive for the optional mode. Omitted filters use the
+API defaults and are not labeled as all-season totals. Responses that fail to
+confirm an explicitly requested season or mode are rejected.
+
+The command provides three pages, with the hero's thumbnail when available:
+
+- **Overview:** matches, wins, win rate, playtime, kills, deaths, assists, K/D, and KDA.
+- **Impact:** damage, healing, damage taken, accuracy, MVP/SVP awards, and multikills.
+- **Personal Bests:** the API's best kills, assists, final hits, headshot kills,
+  solo kills, damage, and healing.
+
+Hero matches and wins can be **fractional** because switching heroes splits
+match credit. These values retain their decimals; win rate uses wins divided by
+matches. Zero reported matches produces a single overview explaining the empty
+selection. Missing or invalid statistics display as unavailable.
+
+Only the invoking user can navigate, for two minutes. Page changes reuse fetched
+data. Hero stats cache for 60 seconds; the hero catalog caches for one hour.
+The hero career endpoint is separate from Premium hero proficiency, and this
+command makes no proficiency request. Its documented cost is 10 credits per
+uncached hero-stat request, plus username and any uncached catalog lookups.
+[Provider documentation](https://api.rivalsisland.com/docs#players).
 
 ### Player ranks
 
@@ -271,6 +308,7 @@ Keep the process running and wait for the ready message. In Discord, try:
 /help
 /stats player:Sypeh
 /stats player:Sypeh season:9.5 mode:Competitive
+/hero-stats hero:Spider-Man player:Sypeh
 /history player:Sypeh mode:Competitive
 ```
 
@@ -304,6 +342,8 @@ missing players/matches, cache reuse, image attachments, and standalone labels
 in both rendered and fallback replies.
 Help checks cover command/option coverage, private replies without API access,
 examples, Premium and cache explanations, unknown selections, and embed limits.
+Hero-stat checks cover hero name resolution, fractional totals, filter confirmation,
+missing players/data, catalog and stats cache expiry, safe thumbnails, and pagination.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -336,16 +376,17 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `commands/` | Defines command options and execution. |
 | `lib/discord/load-commands.js` | Loads commands, validates exports, and rejects duplicate names. |
 | `lib/discord/handle-interaction.js` | Routes slash commands, applies cooldowns, and handles execution failures. |
-| `lib/marvel-rivals-api/` | Player lookups, season catalog fetching, and shared HTTP request handling. |
+| `lib/marvel-rivals-api/` | Player lookups, hero/season catalogs, and shared HTTP request handling. |
 | `lib/discord/set-presence.js` | Applies the configured status and activity. |
 | `lib/embeds/stats/` | Builds career and proficiency pages; combines them with page numbering. |
+| `lib/embeds/heroes/` | Builds player hero career pages with fractional match totals and personal bests. |
 | `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
 | `lib/rendering/history/` | Loads bounded public images and renders team scoreboards as PNGs. |
 | `lib/embeds/rank/` | Builds latest/season rank cards and the all-time peak card. |
 | `lib/help/command-guides.js` | Stores command usage, examples, and limitations for the help menu. |
 | `lib/embeds/help/` | Builds the help overview and detailed command guides. |
-| `lib/services/` | Resolves public seasons and assembles lazy history messages with images or text fallbacks. |
-| `lib/formatting/` | Shared numbers, accuracy, rank labels/badges, and Markdown text formatting. |
+| `lib/services/` | Resolves hero names/public seasons and assembles lazy history messages with images or text fallbacks. |
+| `lib/formatting/` | Shared numbers, career labels, trusted hero icons, rank badges, and Markdown text formatting. |
 | `lib/discord/paginate-embeds.js` | Handles message-scoped page navigation. |
 | `lib/cache.js` | Stores completed results with expiry and a size limit. |
 | `lib/cooldowns.js` | Tracks per-user, per-command cooldowns. |
@@ -367,14 +408,15 @@ only after validation, and remove failed pending requests so later calls can ret
 ### Request controls
 
 - Commands have a **five-second cooldown per user and command**.
-- Career, proficiency, rank history, match history, and match details are cached for **60 seconds**.
-  Season lists are cached for **one hour**. All six use a shared **100-entry cache limit**.
+- Career, hero stats, proficiency, rank history, match history, and match details are cached for **60 seconds**.
+  Hero and season catalogs are cached for **one hour**. All eight use a shared **100-entry cache limit**.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
-  Rank history caches each selected season separately from unfiltered all-time data.
+  Hero-stat keys include player, hero, season, and mode. Rank history caches each
+  selected season separately from unfiltered all-time data.
   Username search is not cached.
 - `lib/marvel-rivals-api/cached-request.js` handles caching and shares identical
-  pending requests for all six cached endpoints, including response validation.
+  pending requests for all eight cached endpoints, including response validation.
   Failed lookups are removed so they can be retried. Username search remains uncached.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
   API origin are blocked locally until the retry deadline. The client respects
@@ -396,7 +438,7 @@ access requirements will be checked as each feature is implemented.
 | Expanded stats | Linked-account defaults for an omitted player and most-played hero performance in `/stats`; season and mode filters are already available. |
 | Expanded ranks | Linked-account defaults and rank progression over time; latest, seasonal, and all-time peak lookups are available through `/rank`. |
 | Expanded matches | Older history-page fetching and linked-account defaults; `/history` and standalone `/match player match-id` already show full scoreboards. |
-| Hero performance | `/player-hero hero [player] [season]` and `/compare player-a player-b [hero]`, using consistent season/mode settings. |
+| Player comparison | `/compare player-a player-b [hero]`, using consistent season/mode settings; individual hero performance is available through `/hero-stats`. |
 | Refresh | `/refresh [player]` to request updates and show the refresh cooldown. |
 | Patch notes | `/patch latest`, `/patch list`. |
 | Balance changes | `/balance latest [hero]`, `/balance search query`. |
