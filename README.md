@@ -4,7 +4,7 @@ A Discord bot for the University of Toronto Marvel Rivals community, built with
 [discord.js](https://discord.js.org/) and the
 [RivalsIsland API](https://api.rivalsisland.com/docs).
 
-Gambot currently provides player stats and recent match history in paginated
+Gambot currently provides player stats, rank lookups, and recent match history in
 embeds. Account linking, standalone match lookup, patch notes, and community tools
 are planned features.
 
@@ -14,6 +14,7 @@ are planned features.
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
 | `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
+| `/rank player:<username> [season:<number>] [all-time:<boolean>]` | Shows the latest reported rank, a selected season's ranks, or the highest reported peak across available seasons. Seasonal and all-time lookups require API Premium access. |
 | `/history player:<username> [mode:<mode>]` | Automatically shows a full scoreboard for each opened match, including both teams, heroes, combat stats, and a highlighted player. |
 
 ### Season and mode filters
@@ -67,6 +68,38 @@ Hero proficiency comes from a separate endpoint and is not filtered by season or
 Premium-only. Gambot attempts that lookup and shows an availability explanation
 if it fails; career stats remain usable.
 [Provider documentation](https://api.rivalsisland.com/docs).
+
+### Player ranks
+
+```text
+/rank player:Sypeh
+/rank player:Sypeh season:9.5
+/rank player:Sypeh all-time:True
+```
+
+Without either option, `/rank` shows the latest profile rank and its reported
+season, using the career endpoint. A selected season uses the dedicated
+`/players/{uid}/rank-history` endpoint after resolving the public number to its
+catalog ID. It never substitutes the latest profile rank for missing history.
+If that season has separate PC, PlayStation, and Xbox ranks, each gets a card.
+
+Use **all-time:True** to show the highest reported peak across the seasons and
+platforms returned by rank history. Use either `season` or `all-time:True`.
+Peaks are compared by rank level, with score breaking ties at the same level.
+The card shows that peak's score, season, platform, and the number of distinct
+seasons returned. It does not sum scores or infer peaks from final ranks.
+Missing data stays unavailable; historical coverage depends on the provider.
+
+Rank cards display the matching tier badge as a thumbnail. Regular cards use the
+current or selected-season rank; the all-time card uses the selected peak rank.
+Numeric and Roman divisions share the tier badge. Unknown or unranked values
+have no icon. Discord loads the provider's public images directly, without an
+extra authenticated lookup. [Badge catalog](https://rivalsisland.com/data/game-data.json).
+
+RivalsIsland documents rank history as **Premium-only, 5 credits per request**,
+in addition to username lookup. Selecting a season also requires a season catalog
+lookup when that catalog is not cached. These options cannot bypass the API's
+access restrictions. [Provider documentation](https://api.rivalsisland.com/docs#players).
 
 ### Recent match history
 
@@ -203,6 +236,8 @@ mode filters, API confirmation, and separation from cached season-specific stats
 History checks cover request and response validation, cache expiry and mode
 separation, named table rows, three-card match layouts, native hero thumbnails, and embed limits,
 summary fallback, navigation expiry, and lazy detail loading during navigation.
+Rank checks cover season-specific history, all-time peak comparison, platform
+separation, conflicting options, missing data, validation, and cache isolation.
 
 To make a real username and career-stats lookup without starting Discord, run:
 
@@ -239,6 +274,7 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `lib/discord/set-presence.js` | Applies the configured status and activity. |
 | `lib/embeds/stats/` | Builds career and proficiency pages; combines them with page numbering. |
 | `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
+| `lib/embeds/rank/` | Builds latest/season rank cards and the all-time peak card. |
 | `lib/services/` | Resolves public seasons and assembles lazy history pages. |
 | `lib/formatting/` | Shared number, rank-change, and Markdown text formatting. |
 | `lib/discord/paginate-embeds.js` | Handles message-scoped page navigation. |
@@ -262,12 +298,13 @@ only after validation, and remove failed pending requests so later calls can ret
 ### Request controls
 
 - Commands have a **five-second cooldown per user and command**.
-- Career, proficiency, match history, and match details are cached for **60 seconds**.
-  Season lists are cached for **one hour**. All five use a shared **100-entry cache limit**.
+- Career, proficiency, rank history, match history, and match details are cached for **60 seconds**.
+  Season lists are cached for **one hour**. All six use a shared **100-entry cache limit**.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
+  Rank history caches each selected season separately from unfiltered all-time data.
   Username search is not cached.
-- `lib/marvel-rivals-api/cached-request.js` shares identical pending career, proficiency, and match-detail requests,
+- `lib/marvel-rivals-api/cached-request.js` shares identical pending career, proficiency, rank-history, and match-detail requests,
   including response validation. Failed lookups are removed so they can be retried.
   History and season lookups cache completed results but do not share pending requests.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
@@ -288,7 +325,7 @@ access requirements will be checked as each feature is implemented.
 | --- | --- |
 | Saved accounts | `/account link uid`, `/account unlink`. Save an association with a Discord account; this does not verify ownership. |
 | Expanded stats | Linked-account defaults for an omitted player and most-played hero performance in `/stats`; season and mode filters are already available. |
-| Rank | `/rank [player] [season]` for current/peak rank and available progression. |
+| Expanded ranks | Linked-account defaults and rank progression over time; latest, seasonal, and all-time peak lookups are available through `/rank`. |
 | Expanded matches | Older history-page fetching, linked-account defaults for `/history`, and a standalone `/match player match-id`; history already opens full scoreboards automatically. |
 | Hero performance | `/player-hero hero [player] [season]` and `/compare player-a player-b [hero]`, using consistent season/mode settings. |
 | Refresh | `/refresh [player]` to request updates and show the refresh cooldown. |
