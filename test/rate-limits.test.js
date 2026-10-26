@@ -56,6 +56,22 @@ test("429 blocks further fetches until the exact retry time", async () => {
   });
 });
 
+test("rate-limit errors expose a safe status and the shared retry deadline", async () => {
+  await withFakeApi(async (state) => {
+    state.respond = async () => new Response("Private upstream details", { status: 429, headers: { "Retry-After": "2" } });
+    const check = (error) => {
+      assert.equal(error.status, 429);
+      assert.equal(error.retryAt, 3000);
+      assert.equal(error.message, "Too many requests. Please try again later.");
+      return true;
+    };
+    await assert.rejects(requestApi(playerUrl, apiKey), check);
+    state.now = 1500;
+    await assert.rejects(requestApi(playerUrl, apiKey), check);
+    assert.equal(state.requests.length, 1);
+  });
+});
+
 test("retry headers support priority, rounding, conversion, and fallback", async () => {
   const cases = [
     [{ "X-RateLimit-Retry-After-Ms": "1500", "Retry-After": "9" }, 1500],

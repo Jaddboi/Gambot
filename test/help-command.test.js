@@ -142,6 +142,17 @@ test("hero-stats help distinguishes performance from proficiency and explains fr
   assert.match(text, /not Premium hero proficiency; no proficiency lookup is made/);
 });
 
+test("compare help explains highlights, matching filters, neutral totals, and unavailable samples", () => {
+  const text = embedText(buildHelpEmbed("compare").toJSON());
+  assert.match(text, /player-a:<username> player-b:<username>/);
+  assert.match(text, /Each full-width stat section shows both player names/);
+  assert.match(text, /stronger value in bold beside a green indicator and a named lead/);
+  assert.match(text, /Lower deaths per match is better/);
+  assert.match(text, /matching season, mode, and platform filters/);
+  assert.match(text, /totals and damage taken are not scored/);
+  assert.match(text, /zero-match samples receive no winner/);
+});
+
 test("unknown selections offer the overview without echoing untrusted input", async () => {
   const reply = await getHelpReply("@everyone <@123456789> unknown");
   const text = embedText(reply.embeds[0].toJSON());
