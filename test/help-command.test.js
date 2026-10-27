@@ -51,9 +51,14 @@ test("help offers every implemented command as an optional string choice", () =>
 test("guides document every registered option and preserve required and optional usage", () => {
   for (const guide of commandGuides) {
     const definition = loadCommand(guide.name).data.toJSON();
-    assert.deepEqual(guide.options.map((option) => option.name), (definition.options ?? []).map((option) => option.name));
+    const target = guide.subcommand
+      ? definition.options.find((option) => option.name === guide.subcommand)
+      : definition;
+    assert.ok(target, `Missing registered subcommand for ${guide.name}`);
+    if (guide.subcommand) assert.equal(target.type, ApplicationCommandOptionType.Subcommand);
+    assert.deepEqual(guide.options.map((option) => option.name), (target.options ?? []).map((option) => option.name));
     assert.ok(guide.usage.startsWith(`/${definition.name}`));
-    for (const option of definition.options ?? []) {
+    for (const option of target.options ?? []) {
       const documentedOption = `${option.name}:<`;
       assert.ok(guide.usage.includes(option.required ? ` ${documentedOption}` : `[${documentedOption}`),
         `Check ${guide.name}'s ${option.name} usage`);
@@ -140,6 +145,15 @@ test("hero-stats help distinguishes performance from proficiency and explains fr
   assert.match(text, /Overview, Impact, and Personal Bests/);
   assert.match(text, /fractional because switching heroes splits match credit/);
   assert.match(text, /not Premium hero proficiency; no proficiency lookup is made/);
+});
+
+test("hero help explains the info subcommand, catalog data, and API limitations", () => {
+  const text = embedText(buildHelpEmbed("hero").toJSON());
+  assert.match(text, /\/hero info name:<name>/);
+  assert.match(text, /role, real name, description, team-ups, catalog skin count/);
+  assert.match(text, /Biography pages use Previous\/Next/);
+  assert.match(text, /does not provide ability descriptions/);
+  assert.match(text, /not skins owned by a player/);
 });
 
 test("compare help explains highlights, matching filters, neutral totals, and unavailable samples", () => {
