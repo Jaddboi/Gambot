@@ -1,0 +1,22 @@
+{
+  "id": 1039,
+  "name": "SPIDER-MAN",
+  "role": "Duelist",
+  "icon": "https://assets.rivalsisland.com/v1/test/heroes/1039_regular.png",
+  "real_name": "Peter Parker",
+  "description": "A fictional hero description used only by the test suite.",
+  "biography": "A short sample biography for testing the hero information pages.\n\nThis paragraph checks that story formatting is preserved.",
+  "icons": {
+    "regular": "https://assets.rivalsisland.com/v1/test/heroes/1039_regular.png",
+    "lord": null,
+    "fullbody": null,
+    "animated": null
+  },
+  "teamups": [
+    { "id": 1, "name": "Sample Team-Up" },
+    { "id": 2, "name": "Another Team-Up" }
+  ],
+  "skin_ids": ["1039001", "ps1039002"],
+  "base_hero_id": null,
+  "forms": []
+}

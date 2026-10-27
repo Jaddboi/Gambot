@@ -4,7 +4,7 @@ A Discord bot for the University of Toronto Marvel Rivals community, built with
 [discord.js](https://discord.js.org/) and the
 [RivalsIsland API](https://api.rivalsisland.com/docs).
 
-Gambot currently provides player and hero stats, rank lookups, recent match history, and
+Gambot currently provides hero information, player and hero stats, rank lookups, recent match history, and
 standalone match scoreboards. Account linking, patch notes, and community tools
 are planned features.
 
@@ -13,6 +13,7 @@ are planned features.
 | Command | What it does |
 | --- | --- |
 | `/ping` | Shows bot response time and Discord gateway latency. |
+| `/hero info name:<name>` | Shows a hero's icon, role, real name, description, biography, team-ups, and catalog skin count. |
 | `/stats player:<username> [season:<number>] [all-seasons:<boolean>] [mode:<mode>]` | Looks up a Marvel Rivals username and displays paginated stats for one season or all seasons, optionally filtered to Quick Play or Competitive. |
 | `/hero-stats hero:<name> player:<username> [season:<number>] [mode:<mode>]` | Shows one hero's career performance, impact, and personal bests for the selected player. |
 | `/compare player-a:<username> player-b:<username> [hero:<name>] [season:<number>] [mode:<mode>]` | Compares matching career or hero stats and highlights the stronger rates and ratios. |
@@ -87,6 +88,36 @@ Hero proficiency comes from a separate endpoint and is not filtered by season or
 Premium-only. Gambot attempts that lookup and shows an availability explanation
 if it fails; career stats remain usable.
 [Provider documentation](https://api.rivalsisland.com/docs).
+
+### Hero information
+
+```text
+/hero info name:Spider-Man
+/hero info name:Iron Man
+/help command:hero
+```
+
+The required name uses the existing hero catalog resolver: capitalization,
+spaces, and punctuation are ignored, and incomplete or ambiguous names receive
+full-name suggestions when available. The overview shows the hero's role, real
+name, description, team-up names, and number of skins in the catalog. This count
+does not represent skins owned by a player. The thumbnail uses the provider's
+trusted character icon, with regular/catalog icon fallbacks if needed.
+
+Available biography text appears on separate pages, split near word or paragraph
+boundaries for readability. Only the invoking user can navigate, for two minutes;
+page changes reuse fetched data. Very long biographies are limited to five story
+pages with a shortening notice. Team-up lists show up to eight entries and
+disclose any remaining count. Missing details stay unavailable instead of being
+filled with guessed information.
+
+The current hero-detail schema does **not** include ability descriptions.
+This command uses `/heroes` and `/heroes/{hero_id}` without player or Premium
+requests. Both catalog and details cache for one hour. Each uncached catalog or
+detail request is documented as one API credit; operations run sequentially and
+use the existing bounded rate-limit retry helper.
+[Provider documentation](https://api.rivalsisland.com/docs),
+[response schema](https://api.rivalsisland.com/docs/openapi.json).
 
 ### Player hero stats
 
@@ -308,7 +339,7 @@ MARVEL_RIVALS_API_BASE_URL=https://api.rivalsisland.com
 | --- | --- |
 | `BOT_TOKEN` | Bot login and command registration. |
 | `CLIENT_ID` | The Discord application receiving registered commands. |
-| `MARVEL_RIVALS_API_KEY` | Player data and season catalog requests. |
+| `MARVEL_RIVALS_API_KEY` | Player data, hero details, and catalog requests. |
 | `MARVEL_RIVALS_API_BASE_URL` | The API server, which must use HTTPS. |
 
 Keep Discord IDs as strings. Keep real tokens and keys out of source code and
@@ -350,6 +381,7 @@ Keep the process running and wait for the ready message. In Discord, try:
 ```text
 /ping
 /help
+/hero info name:Spider-Man
 /stats player:Sypeh
 /stats player:Sypeh season:9.5 mode:Competitive
 /hero-stats hero:Spider-Man player:Sypeh
@@ -388,6 +420,8 @@ Help checks cover command/option coverage, private replies without API access,
 examples, Premium and cache explanations, unknown selections, and embed limits.
 Hero-stat checks cover hero name resolution, fractional totals, filter confirmation,
 missing players/data, catalog and stats cache expiry, safe thumbnails, and pagination.
+Hero-info checks cover the subcommand definition, detail response validation,
+catalog caching, biography pages, missing details, safe thumbnails, and navigation.
 Comparison checks cover shared filters, stronger-value highlighting, lower-is-better
 metrics, ties, unavailable values, normalized rates, cache reuse, sequential requests,
 bounded rate-limit retries, and page navigation. Interaction error checks cover clear
@@ -427,7 +461,7 @@ Execution: Discord -> index.js -> interaction handler -> command.execute()
 | `lib/marvel-rivals-api/` | Player lookups, hero/season catalogs, and shared HTTP request handling. |
 | `lib/discord/set-presence.js` | Applies the configured status and activity. |
 | `lib/embeds/stats/` | Builds career and proficiency pages; combines them with page numbering. |
-| `lib/embeds/heroes/` | Builds player hero career pages with fractional match totals and personal bests. |
+| `lib/embeds/heroes/` | Builds hero information/biography pages and player hero career pages. |
 | `lib/embeds/compare/` | Builds highlighted performance comparisons and neutral context pages. |
 | `lib/embeds/history/` | Builds history summaries, match overviews, and team leaderboard tables. |
 | `lib/rendering/history/` | Loads bounded public images and renders team scoreboards as PNGs. |
@@ -458,20 +492,20 @@ only after validation, and remove failed pending requests so later calls can ret
 
 - Commands have a **five-second cooldown per user and command**.
 - Career, hero stats, proficiency, rank history, match history, and match details are cached for **60 seconds**.
-  Hero and season catalogs are cached for **one hour**. All eight use a shared **100-entry cache limit**.
+  Hero details and hero/season catalogs are cached for **one hour**. All nine use a shared **100-entry cache limit**.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
   Hero-stat keys include player, hero, season, and mode. Rank history caches each
   selected season separately from unfiltered all-time data.
   Username search is not cached.
 - `lib/marvel-rivals-api/cached-request.js` handles caching and shares identical
-  pending requests for all eight cached endpoints, including response validation.
+  pending requests for all nine cached endpoints, including response validation.
   Failed lookups are removed so they can be retried. Username search remains uncached.
 - HTTP requests have a **10-second timeout**. After a `429`, requests to that
   API origin are blocked locally until the retry deadline. The client respects
   retry headers, using a one-second fallback when neither supplies a valid delay.
   The shared HTTP client does not automatically retry failed requests. `/compare`
-  adds one bounded retry for rate-limit failures only; other failures are not retried.
+  and `/hero info` add one bounded retry for rate-limit failures only; other failures are not retried.
 
 These controls live in memory and reset on restart. They are not shared between
 processes. Cache freshness describes Gambot's stored response, not a guarantee
@@ -491,7 +525,6 @@ access requirements will be checked as each feature is implemented.
 | Refresh | `/refresh [player]` to request updates and show the refresh cooldown. |
 | Patch notes | `/patch latest`, `/patch list`. |
 | Balance changes | `/balance latest [hero]`, `/balance search query`. |
-| Hero information | `/hero info name` for role, abilities, and details. |
 | Leaderboards | `/leaderboard server [metric] [season]` for opted-in members, with a minimum match count for win-rate rankings; `/leaderboard hero hero` where supported. |
 | Group finding | `/lfg create`, `/lfg list`, `/lfg join`, `/lfg leave`, `/lfg close`. |
 | Profiles | `/profile edit` for roles, mains, availability, and optional UTSG/UTM/UTSC campus. |
