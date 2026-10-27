@@ -91,7 +91,9 @@ test("the overview lists available commands and explains usernames, Premium, and
   assert.match(text, /require a Marvel Rivals username/);
   assert.match(text, /Seasonal and all-time ranks require API Premium access/);
   assert.match(text, /Hero proficiency also requires Premium/);
-  assert.match(text, /60 seconds/);
+  assert.match(text, /Career stats \(overall and hero\) and proficiency cache for up to 3 minutes/);
+  assert.match(text, /rank history, match history, and match details for 60 seconds/);
+  assert.match(text, /Regular \/rank uses career data/);
   assert.match(text, /one hour/);
   assert.match(text, /Username searches are not cached/);
   assert.match(text, /does not guarantee the provider has updated/);

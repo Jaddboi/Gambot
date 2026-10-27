@@ -28,6 +28,7 @@ test("rank embed displays current and peak rank, score, and the returned rank se
   // The thumbnail follows the current Diamond rank, not the Grandmaster peak.
   assert.equal(embed.thumbnail.url, "https://rivalsisland.com/static/ranks/rank_5.png");
   assert.ok(embed.footer.text.includes(`UID: ${player.uid}`));
+  assert.match(embed.footer.text, /cache: up to 3 minutes/);
 });
 
 test("season cards label historical ranks and use confirmed catalog names when the API omits the name", () => {
@@ -40,6 +41,7 @@ test("season cards label historical ranks and use confirmed catalog names when t
   assert.equal(fieldValue(embed, "Rank season"), "9.5");
   assert.equal(fieldValue(embed, "Platform"), "PC");
   assert.match(embed.description, /Season 9.5/);
+  assert.match(embed.footer.text, /cache: up to 60 seconds/);
   assert.equal(embed.thumbnail.url, "https://rivalsisland.com/static/ranks/rank_3.png");
 });
 

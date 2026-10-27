@@ -25,6 +25,7 @@ test("stats pages expose overview, combat, impact, and proficiency availability"
   }).map(page => page.toJSON());
 
   assert.equal(pages.length, 4);
+  assert.ok(pages.every(page => page.footer.text.includes("cache: up to 3 minutes")));
   for (const [index, name] of ["Overview", "Combat", "Impact"].entries()) {
     assert.equal(pages[index].title, `${player.name} — ${name}`);
     assert.match(pages[index].footer.text, new RegExp(`Page ${index + 1} / 4`));
