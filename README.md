@@ -149,7 +149,7 @@ matches. Zero reported matches produces a single overview explaining the empty
 selection. Missing or invalid statistics display as unavailable.
 
 Only the invoking user can navigate, for two minutes. Page changes reuse fetched
-data. Hero stats cache for 60 seconds; the hero catalog caches for one hour.
+data. Hero stats cache for three minutes; the hero catalog caches for one hour.
 The hero career endpoint is separate from Premium hero proficiency, and this
 command makes no proficiency request. Its documented cost is 10 credits per
 uncached hero-stat request, plus username and any uncached catalog lookups.
@@ -491,8 +491,11 @@ only after validation, and remove failed pending requests so later calls can ret
 ### Request controls
 
 - Commands have a **five-second cooldown per user and command**.
-- Career, hero stats, proficiency, rank history, match history, and match details are cached for **60 seconds**.
+- Overall career stats, hero career stats, and proficiency are cached for **three minutes**.
+  Rank history, match history, and match details are cached for **60 seconds**.
   Hero details and hero/season catalogs are cached for **one hour**. All nine use a shared **100-entry cache limit**.
+  The regular `/rank` command uses career data and therefore also caches for three minutes;
+  seasonal and all-time rank lookups use the 60-second rank-history cache.
   Career cache keys include season and mode filters; history keys include page,
   page size, and mode category. Different filters use separate entries.
   Hero-stat keys include player, hero, season, and mode. Rank history caches each

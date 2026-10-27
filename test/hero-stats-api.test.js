@@ -146,12 +146,14 @@ test("hero stats cache keys separate player, hero, season, mode, and API origin"
   });
 });
 
-test("hero stats expire at exactly 60 seconds", async (t) => {
+test("hero stats stay cached past one minute and expire at exactly three minutes", async (t) => {
   let now = 1000;
   t.mock.method(Date, "now", () => now);
   await withHeroApi(async (state) => {
     await getPlayerHeroStatsByUid(uid, heroId, apiKey, baseUrl);
-    now += 59_999;
+    now += 60_000;
+    await getPlayerHeroStatsByUid(uid, heroId, apiKey, baseUrl);
+    now += 119_999;
     await getPlayerHeroStatsByUid(uid, heroId, apiKey, baseUrl);
     assert.equal(state.requests.length, 1);
     now++;

@@ -39,6 +39,27 @@ test("proficiency requests share pending work and cache validated results", asyn
   });
 });
 
+test("proficiency stays cached past one minute and expires at exactly three minutes", async (t) => {
+  let now = 1000;
+  let calls = 0;
+  t.mock.method(Date, "now", () => now);
+  await withFetch(async () => {
+    calls++;
+    return Response.json({ ...proficiency, heroes: [hero(calls)] });
+  }, async () => {
+    const original = await getPlayerProficiencyByUid(player.uid, apiKey, baseUrl);
+    now += 60_000;
+    assert.deepEqual(await getPlayerProficiencyByUid(player.uid, apiKey, baseUrl), original);
+    now += 119_999;
+    assert.deepEqual(await getPlayerProficiencyByUid(player.uid, apiKey, baseUrl), original);
+    assert.equal(calls, 1);
+    now++;
+    const refreshed = await getPlayerProficiencyByUid(player.uid, apiKey, baseUrl);
+    assert.equal(calls, 2);
+    assert.equal(refreshed.heroes[0].proficiency.level, 2);
+  });
+});
+
 test("denied or malformed proficiency data is not cached and permits another attempt", async () => {
   for (const badResponse of [
     () => new Response(null, { status: 403 }),

@@ -40,6 +40,7 @@ test("hero pages label returned filters rather than assuming the requested seaso
       assert.equal(page.description, `Hero career stats • ${label} • Competitive`);
       assert.ok(page.footer.text.startsWith(`Page ${index + 1} / 3 • UID: ${fixture.player.uid}`));
       assert.match(page.footer.text, /Hero matches\/wins can be fractional/);
+      assert.match(page.footer.text, /cache: up to 3 minutes/);
     }
   }
 });

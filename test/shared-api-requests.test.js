@@ -71,8 +71,15 @@ test("simultaneous career lookups share one request and then use the completed c
     assert.deepEqual(await getPlayerCareerStatsByUid(uid, apiKey, baseUrl), careerResult());
     assert.equal(state.requests.length, 1);
 
-    // An expired cache entry must cause a fresh request, not reuse a settled Promise.
+    // Reads after the old one-minute limit still reuse the original entry.
     state.now += 60_000;
+    assert.deepEqual(await getPlayerCareerStatsByUid(uid, apiKey, baseUrl), careerResult());
+    state.now += 119_999;
+    assert.deepEqual(await getPlayerCareerStatsByUid(uid, apiKey, baseUrl), careerResult());
+    assert.equal(state.requests.length, 1);
+
+    // Hits do not extend the TTL: refresh at exactly three minutes after insertion.
+    state.now++;
     state.respond = async () => Response.json(careerResult(uid, 41));
     assert.deepEqual(await getPlayerCareerStatsByUid(uid, apiKey, baseUrl), careerResult(uid, 41));
     assert.equal(state.requests.length, 2);

@@ -68,6 +68,7 @@ test("performance rates account for sample size and impact rates account for pla
   const [performance, impact, totals] = pagesFor(original);
   assert.equal(performance.title, "CampusPlayer vs OtherPlayer — Performance");
   for (const page of [performance, impact, totals]) {
+    assert.match(page.footer.text, /Cache: up to 3 minutes/);
     assert.ok(page.fields.every((entry) => entry.inline === false));
     assert.doesNotMatch(JSON.stringify(page), /\b[AB]:|\b[AB] ·|\b[AB] leads by/);
     for (const entry of page.fields) {
